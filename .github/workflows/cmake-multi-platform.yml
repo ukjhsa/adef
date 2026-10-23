@@ -52,3 +52,6 @@ jobs:
 
     - name: Test
       run: ctest --test-dir build --build-config ${{ matrix.build_type }} --output-on-failure
+
+    - name: Install
+      run: cmake --install build --config ${{ matrix.build_type }} --prefix ${{ github.workspace }}/install-prefix
