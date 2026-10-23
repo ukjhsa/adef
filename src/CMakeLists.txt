@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.1)
-
 # build library of ADEF
 
 # add source file
@@ -78,25 +76,54 @@ set(adef_source ${func_src}
 
 # the type of library base on BUILD_SHARED_LIBS
 add_library(libadef ${adef_source})
+add_library(adef::adef ALIAS libadef)
+
+# require C++17 for libadef and any targets linking to it
+target_compile_features(libadef PUBLIC cxx_std_17)
 
 # include dir of libadef
 # PRIVATE means only itself include these dir
 # INTERFACE means other target used libadef also include these dir
 # PUBLIC means both of them
 target_include_directories(libadef
-                           PUBLIC ${PROJECT_SOURCE_DIR}/${ADEF_INCLUDE_DIR})
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/${ADEF_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+# libadef public header (JsonConfigurationData.h) includes json.hpp
+target_include_directories(libadef
+    SYSTEM PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/${JSON_INCLUDE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+target_compile_options(libadef PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+)
 
 # if STATIC, see ARCHIVE_OUTPUT_DIRECTORY
 # if SHARED and non-DLL platforms, see LIBRARY_OUTPUT_DIRECTORY
 # if SHARED and DLL platforms, see RUNTIME_OUTPUT_DIRECTORY
-set_target_properties(libadef PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
-                                         LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
-                                         RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+set_target_properties(libadef PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+    OUTPUT_NAME adef
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
 
-set_target_properties(libadef PROPERTIES OUTPUT_NAME adef
-                                         CXX_STANDARD 17
-                                         CXX_STANDARD_REQUIRED ON)
+install(TARGETS libadef
+        EXPORT adefTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-# libadef needs to include json
-target_include_directories(libadef
-                           PRIVATE ${PROJECT_SOURCE_DIR}/${JSON_INCLUDE_DIR})
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/${ADEF_INCLUDE_DIR}/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(FILES ${PROJECT_SOURCE_DIR}/${JSON_INCLUDE_DIR}/json.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
