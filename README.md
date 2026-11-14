@@ -38,7 +38,7 @@ Variable Representations
 - real encoding
 
 ## Requirements
-- [CMake](https://cmake.org/) 3.8.2 or the newer.
+- [CMake](https://cmake.org/) 3.15 or the newer.
 - C++ compiler with C++17 supported.
 
 Tested environments:
