@@ -65,4 +65,13 @@ if(BUILD_TESTING)
     add_test(NAME test_generation_control_update
              COMMAND test_generation_control_update
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_generation_control_update>)
+
+    add_executable(test_parameters test/test_parameters.cpp)
+    target_link_libraries(test_parameters PRIVATE adef::adef)
+    set_target_properties(test_parameters PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_parameters
+             COMMAND test_parameters
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_parameters>)
 endif()
