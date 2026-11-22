@@ -125,9 +125,10 @@ its configuration should be
         auto generation = std::dynamic_pointer_cast<Function<int>>(
                                     BaseFunction::get_function("generation"));
         generation->update();
-        auto generatio = generation->generate();
+        auto current_generation = generation->generate();
 
-        if (generatio % learning_period_ == 0) {
+        if (learning_period_ > 0 && current_generation >= 0 &&
+            static_cast<unsigned int>(current_generation) % learning_period_ == 0) {
             Function<T>::get_function("object")->update();
         }
     }
