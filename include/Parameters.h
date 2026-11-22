@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <stdexcept>
 #include "Prototype.h"
 #include "EvolutionaryState.h"
 
@@ -140,15 +141,34 @@ public:
     }
 
 /**
+@brief Check whether the parameter exists.
+@param name The parameter name to check.
+@return @c true if the parameter exists, otherwise @c false.
+*/
+    bool contains(const std::string& name) const
+    {
+        return take_out_impl(name) != nullptr;
+    }
+
+/**
 @brief Take out the parameter.
 @tparam T The type of the parameter.
 @param name The parameter name to take out.
+@exception std::out_of_range The parameter does not exist.
+@exception std::runtime_error The stored parameter type does not match @a T.
 @sa take_out_impl()
 */
     template<typename T>
     T take_out(const std::string& name) const
     {
-        auto param = std::dynamic_pointer_cast<Parameter<T>>(take_out_impl(name));
+        auto base = take_out_impl(name);
+        if (!base) {
+            throw std::out_of_range("Parameter \"" + name + "\" not found");
+        }
+        auto param = std::dynamic_pointer_cast<Parameter<T>>(base);
+        if (!param) {
+            throw std::runtime_error("Parameter \"" + name + "\" type mismatch");
+        }
         return param->value;
     }
 
