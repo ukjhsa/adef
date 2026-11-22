@@ -1,5 +1,6 @@
 #include <memory>
 #include <string>
+#include <limits>
 #include <stdexcept>
 #include "cm/cu/GenerationControlUpdate.h"
 #include "cm/cp/BaseControlParameter.h"
@@ -19,7 +20,11 @@ void GenerationControlUpdate::update(std::shared_ptr<Repository> repos, std::sha
 {
     std::string name = "generation";
     auto generation = repos->parameters()->take_out<unsigned int>(name);
-    auto succ = function->record({ generation }, name);
+    if (generation > static_cast<unsigned int>(std::numeric_limits<int>::max())) {
+        throw std::overflow_error(
+            "Generation value exceeds the maximum representable int value");
+    }
+    auto succ = function->record({ static_cast<int>(generation) }, name);
     if (!succ) {
         throw std::runtime_error(
             "No functions accept parameters \"" + name + "\" "

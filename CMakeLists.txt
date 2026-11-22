@@ -55,3 +55,14 @@ if(GENERATE_EXECUTABLE)
                  WORKING_DIRECTORY $<TARGET_FILE_DIR:adef>)
     endif()
 endif()
+
+if(BUILD_TESTING)
+    add_executable(test_generation_control_update test/test_generation_control_update.cpp)
+    target_link_libraries(test_generation_control_update PRIVATE adef::adef)
+    set_target_properties(test_generation_control_update PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_generation_control_update
+             COMMAND test_generation_control_update
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_generation_control_update>)
+endif()

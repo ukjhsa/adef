@@ -21,7 +21,7 @@ Take out parameters from Parameters:
 - type <tt>unsigned int</tt> and name "generation"
 .
 record parameters into Function:
-- name "generation"
+- type @c int and name "generation"
 .
 
 @par The configuration
