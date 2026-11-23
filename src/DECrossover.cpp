@@ -29,6 +29,7 @@ void DECrossover::init(std::shared_ptr<Repository> repos)
 {
     variant_z_->init(repos);
     repos->parameters()->store("cr", cr_);
+    if (cr_) { cr_->init(repos); }
 }
 
 void DECrossover::crossover(std::shared_ptr<Repository> repos) const

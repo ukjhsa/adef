@@ -151,6 +151,12 @@ its configuration should be
                                         "ControlMechanism", config, pm);
     }
 
+    void init(std::shared_ptr<Repository> repos) override
+    {
+        if (parameter_) { parameter_->init(repos); }
+        if (cm_) { cm_->init(repos); }
+    }
+
     Object generate(std::shared_ptr<Repository> repos) override
     {
         auto index = repos->parameters()->take_out<std::size_t>("target_index");

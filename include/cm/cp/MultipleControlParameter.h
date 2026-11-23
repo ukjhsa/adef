@@ -36,6 +36,15 @@ public:
 /// The type of the object.
     using Object = typename ControlParameter<T>::Object;
 
+    MultipleControlParameter() = default;
+    MultipleControlParameter(const MultipleControlParameter& rhs) :
+        ControlParameter<T>(rhs),
+        objects_(rhs.objects_),
+        already_generated_(rhs.already_generated_),
+        initial_function_(rhs.initial_function_ ? rhs.initial_function_->clone() : nullptr)
+    {
+    }
+
 /**
 @brief Clone the current class.
 @sa clone_impl()
@@ -109,17 +118,26 @@ its configuration should be
         // initial value is arithmetic
         if (init_config.is_number()) {
             objects_.assign(size, init_config.get_value<Object>());
+            initial_function_.reset();
         }
         // initial value is generated from Function
         else if (init_config.is_object()) {
-            auto func = make_and_setup_type<Function<Object>>(init_config, pm);
-            for (auto& object : objects_) {
-                func->update();
-                object = func->generate();
-            }
+            initial_function_ = make_and_setup_type<Function<Object>>(init_config, pm);
         }
         // initial value is default value of Object type
         else {
+            initial_function_.reset();
+        }
+    }
+
+    void init(std::shared_ptr<Repository> repos) override
+    {
+        if (initial_function_) {
+            initial_function_->init(repos);
+            for (auto& object : objects_) {
+                initial_function_->update();
+                object = initial_function_->generate();
+            }
         }
     }
 /**
@@ -164,6 +182,8 @@ private:
     std::vector<Object> objects_;
 /// The flag of already generated
     std::vector<bool> already_generated_;
+/// Optional Function used to initialize objects_ during init().
+    std::shared_ptr<Function<Object>> initial_function_;
 
 private:
 

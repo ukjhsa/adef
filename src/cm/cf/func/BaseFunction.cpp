@@ -24,6 +24,11 @@ BaseFunction::BaseFunction(const BaseFunction & rhs) : Prototype(rhs), name_(rhs
 void BaseFunction::init(std::shared_ptr<Repository> repos)
 {
     random_ = repos->random();
+    for (auto& func : functions_) {
+        if (func) {
+            func->init(repos);
+        }
+    }
 }
 
 void BaseFunction::add_function(BaseFunctionPtr function)

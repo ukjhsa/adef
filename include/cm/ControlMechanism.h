@@ -156,9 +156,10 @@ its configuration should be
 @brief Initialize this state from other states.
 @param repos The Repository to get initialization informations.
 */
-    void init(std::shared_ptr<Repository> repos)
+    virtual void init(std::shared_ptr<Repository> repos) override
     {
-        function_->init(repos);
+        if (parameter_) { parameter_->init(repos); }
+        if (function_) { function_->init(repos); }
     }
 /**
 @brief Generate the new object by the given mechanism.

@@ -5,8 +5,10 @@
 #include <vector>
 #include <string>
 #include <any>
+#include <cstddef>
 #include <cstdlib>
 #include <random>
+#include <stdexcept>
 #include "Function.h"
 #include "Configuration.h"
 #include "PrototypeManager.h"
@@ -140,10 +142,26 @@ its configuration should be
         }
     }
 
+    void init(std::shared_ptr<Repository> repos) override
+    {
+        BaseFunction::init(repos);
+        if constexpr (is_shared_ptr<Object>::value) {
+            if constexpr (std::is_convertible_v<typename Object::element_type*, BaseFunction*>) {
+                for (auto& element : objects_) {
+                    if (element.object) {
+                        element.object->init(repos);
+                    }
+                }
+            }
+        }
+    }
+
     Object generate() override
     {
-        static std::uniform_int_distribution<unsigned int>
-            uniform(0, objects_.size() -1);
+        if (objects_.empty()) {
+            throw std::logic_error("RandomSelectionFunction has no objects.");
+        }
+        std::uniform_int_distribution<std::size_t> uniform(0, objects_.size() - 1);
         auto index = BaseFunction::random_->generate(uniform);
 
         return objects_.at(index).object;
