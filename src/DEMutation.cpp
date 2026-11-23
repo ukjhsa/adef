@@ -33,6 +33,7 @@ void DEMutation::setup(const Configuration& config,
 void DEMutation::init(std::shared_ptr<Repository> repos)
 {
     repos->parameters()->store("f", f_);
+    if (f_) { f_->init(repos); }
 
     random_ = repos->random();
 }

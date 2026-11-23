@@ -110,6 +110,18 @@ its configuration should be
         }
     }
 
+    void init(std::shared_ptr<Repository> repos) override
+    {
+        BaseFunction::init(repos);
+        if constexpr (is_shared_ptr<Object>::value) {
+            if constexpr (std::is_convertible_v<typename Object::element_type*, BaseFunction*>) {
+                if (object_.object) {
+                    object_.object->init(repos);
+                }
+            }
+        }
+    }
+
     Object generate() override
     {
         return object_.object;

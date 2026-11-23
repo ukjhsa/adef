@@ -6,6 +6,8 @@
 
 namespace adef {
 
+class Repository;
+
 /**
 @brief BaseControlParameter defines interfaces of all ControlParameter.
 */
@@ -23,6 +25,11 @@ public:
     {
         return std::dynamic_pointer_cast<BaseControlParameter>(clone_impl());
     }
+/**
+@brief Initialize this state from other states.
+@param repos The Repository to get initialization informations.
+*/
+    virtual void init(std::shared_ptr<Repository>) {}
 
 private:
 

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -30,7 +31,7 @@ void SdeFControlUpdate::update(std::shared_ptr<Repository> repos,
     auto indices = exclusive_random_generator(temp,
         number_param,
         0,
-        repos->population()->population_size(),
+        static_cast<unsigned int>(repos->population()->population_size()),
         repos->random());
 
     std::vector<std::any> record;
@@ -52,21 +53,34 @@ std::vector<std::size_t> SdeFControlUpdate::exclusive_random_generator(
     unsigned int max_range,
     std::shared_ptr<Random> random) const
 {
-    std::vector<std::size_t> result(number_of_result);
-    for (auto& res : result) {
-
-        std::size_t rnd = random->random() % (max_range - min_range) + min_range;
-        for (std::size_t counter = 0; counter < used_numbers.size(); ) {
-            for (auto used : used_numbers) {
-                if (rnd == used) {
-                    counter = 0;
-                    break;
-                }
-                ++counter;
-            }
-            rnd = random->random() % (max_range - min_range) + min_range;
+    if (number_of_result == 0) {
+        return {};
+    }
+    if (max_range <= min_range) {
+        throw std::invalid_argument(
+            "Invalid range for SdeFControlUpdate::exclusive_random_generator.");
+    }
+    const std::size_t range_size = max_range - min_range;
+    std::size_t used_in_range = 0;
+    for (std::size_t idx = min_range; idx < max_range; ++idx) {
+        if (std::find(used_numbers.begin(), used_numbers.end(), idx) != used_numbers.end()) {
+            ++used_in_range;
         }
-        res = rnd;
+    }
+    if (number_of_result > range_size - used_in_range) {
+        throw std::invalid_argument(
+            "Requested number of exclusive random indices exceeds available range.");
+    }
+
+    std::vector<std::size_t> result;
+    result.reserve(number_of_result);
+    for (unsigned int i = 0; i < number_of_result; ++i) {
+        std::size_t rnd = 0;
+        do {
+            rnd = static_cast<std::size_t>(random->random()) % range_size + min_range;
+        } while (std::find(used_numbers.begin(), used_numbers.end(), rnd) != used_numbers.end());
+
+        result.push_back(rnd);
         used_numbers.push_back(rnd);
     }
     return result;

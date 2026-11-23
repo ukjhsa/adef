@@ -170,6 +170,20 @@ its configuration should be
         }
     }
 
+    void init(std::shared_ptr<Repository> repos) override
+    {
+        BaseFunction::init(repos);
+        if constexpr (is_shared_ptr<Object>::value) {
+            if constexpr (std::is_convertible_v<typename Object::element_type*, BaseFunction*>) {
+                for (auto& valued_object : valued_objects_) {
+                    if (valued_object.object_.object) {
+                        valued_object.object_.object->init(repos);
+                    }
+                }
+            }
+        }
+    }
+
     Object generate() override
     {
         Score sum_score = 0;

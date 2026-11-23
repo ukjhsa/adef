@@ -74,4 +74,13 @@ if(BUILD_TESTING)
     add_test(NAME test_parameters
              COMMAND test_parameters
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_parameters>)
+
+    add_executable(test_cm_init_and_sdef_update test/test_cm_init_and_sdef_update.cpp)
+    target_link_libraries(test_cm_init_and_sdef_update PRIVATE adef::adef)
+    set_target_properties(test_cm_init_and_sdef_update PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_cm_init_and_sdef_update
+             COMMAND test_cm_init_and_sdef_update
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_cm_init_and_sdef_update>)
 endif()
