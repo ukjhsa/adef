@@ -472,11 +472,10 @@ bool test_polymorphic_engines_and_test_doubles(const adef::PrototypeManager& pm)
         return false;
     }
 
-    // Const distribution passed to generate()
-    const std::uniform_int_distribution<int> const_dist(5, 10);
-    const int const_val = mt32->generate(const_dist);
-    if (!require(const_val >= 5 && const_val <= 10,
-                 "Expected const distribution to work with Random::generate()")) {
+    // Temporary (rvalue) distribution passed to generate()
+    const int rvalue_val = mt32->generate(std::uniform_int_distribution<int>(5, 10));
+    if (!require(rvalue_val >= 5 && rvalue_val <= 10,
+                 "Expected rvalue distribution to work with Random::generate()")) {
         return false;
     }
 

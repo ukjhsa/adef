@@ -171,13 +171,10 @@ same dynamic type for @p stream_index.
     typename std::decay_t<Distribution>::result_type
     generate(Distribution&& distribution)
     {
-        if constexpr (std::is_const_v<std::remove_reference_t<Distribution>>) {
-            auto dist_copy = distribution;
-            return dist_copy(*this);
-        }
-        else {
-            return distribution(*this);
-        }
+        static_assert(
+            !std::is_const_v<std::remove_reference_t<Distribution>>,
+            "Random::generate requires a non-const distribution.");
+        return distribution(*this);
     }
 
 /**
