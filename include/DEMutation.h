@@ -93,22 +93,6 @@ DEMutation's configuration should be
 
 private:
 
-/**
-@brief Generate numbers that are excluded from used numbers.
-@param used_numbers The numbers used before and will be updated by returning numbers.
-@param number_of_result how many numbers are generated.
-@param min_range The minimum of generated number.
-@param max_range The maximum of generated number.
-@return The sequential numbers.
-*/
-    std::vector<std::size_t> exclusive_random_number_generator(
-                                       std::vector<std::size_t>& used_numbers,
-                                       unsigned int number_of_result,
-                                       unsigned int min_range,
-                                       unsigned int max_range) const;
-
-private:
-
     std::shared_ptr<Random> random_;
 
 /**

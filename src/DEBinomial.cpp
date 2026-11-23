@@ -27,7 +27,10 @@ std::shared_ptr<Individual> DEBinomial::crossover(
     auto trial = target_vector->clone();
 
     std::size_t ind_size = mutant_vector->dimension_of_variable();
-    std::size_t rnd = random_->random() % ind_size;
+    if (ind_size == 0) {
+        return trial;
+    }
+    std::size_t rnd = random_->uniform_index(ind_size);
     std::uniform_real_distribution<> uniform(0, 1);
     for (std::size_t idx = 0; idx < ind_size; ++idx) {
         if ((random_->generate(uniform) < crossover_rate) || (rnd == idx)) {

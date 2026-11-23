@@ -58,7 +58,7 @@ public:
     using Object = typename Function<T>::Object;
 
 /**
-@brief The default constructor with seed value 1.
+@brief The default constructor.
 
 The default value of the lower bound is 0, upper bound is 1.
 */
@@ -67,15 +67,7 @@ The default value of the lower bound is 0, upper bound is 1.
     {
     }
 /**
-@brief The constructor with the given seed.
-@param seed The seed value of the pseudo-random number generator.
-*/
-    UniformDisFunction(unsigned int seed) :
-        lower_bound_(0), upper_bound_(1)
-    {
-    }
-/**
-@brief The copy constructor, but the pseudo-random number generator renews.
+@brief The copy constructor.
 */
     UniformDisFunction(const UniformDisFunction& rhs) :
         Function<T>(rhs),

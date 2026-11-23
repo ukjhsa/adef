@@ -1,8 +1,10 @@
 #ifndef EXPERIMENT_H
 #define EXPERIMENT_H
 
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 #include "Prototype.h"
 
 namespace adef {
@@ -25,6 +27,10 @@ Experiment has extra configurations:
 - member
     - name: "number_of_runs"
     - value: <tt>unsigned int</tt>
+- member (optional)
+    - name: "Random"
+    - value: object configurations which represents Random. When omitted, a
+      default auto-seeded Random instance is created.
 - member
     - name: "ExperimentalStatistics"
     - value: object configurations which represents ExperimentalStatistics.
@@ -95,6 +101,12 @@ After finishing all of runs, it output the statistics of entire runs.
         return random_;
     }
 /**
+@brief Return the effective per-run seeds used during the most recent run().
+*/
+    const std::vector<std::uint32_t>& run_seeds() const {
+        return run_seeds_;
+    }
+/**
 @brief Return the statistics.
 */
     std::shared_ptr<const ExperimentalStatistics> statistics() const {
@@ -119,6 +131,10 @@ protected:
 @brief The random mechanism on current experiment.
 */
     std::shared_ptr<Random> random_;
+/**
+@brief Effective per-run seeds derived during run().
+*/
+    std::vector<std::uint32_t> run_seeds_;
 /**
 @brief The statistics on the experimental level.
 */

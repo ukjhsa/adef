@@ -15,6 +15,13 @@ The API documentation.
 /// namespace for ADEF
 namespace adef {
 
+class PrototypeManager;
+
+/**
+@brief Register all built-in ADEF prototype types into @p pm.
+*/
+void register_type(PrototypeManager& pm);
+
 /**
 @brief Initialize the ADEF.
 @param argc The argument count.

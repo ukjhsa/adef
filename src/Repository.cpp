@@ -26,6 +26,7 @@ Repository::Repository() : algorithm_name_("algorithm")
 Repository::Repository(const Repository& rhs) : Prototype(rhs),
     enable_shared_from_this(rhs), algorithm_name_(rhs.algorithm_name_)
 {
+    if (rhs.random_) { random_ = rhs.random_->clone(); }
     if (rhs.evolution_) { evolution_ = rhs.evolution_->clone(); }
     if (rhs.problem_) { problem_ = rhs.problem_->clone(); }
     if (rhs.statistics_) { statistics_ = rhs.statistics_->clone(); }

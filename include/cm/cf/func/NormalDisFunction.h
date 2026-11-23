@@ -4,7 +4,6 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include <cstdlib>
 #include <random>
 #include "Function.h"
 #include "Configuration.h"
@@ -54,7 +53,7 @@ public:
     using Object = typename Function<T>::Object;
 
 /**
-@brief The default constructor with seed value 1.
+@brief The default constructor.
 
 The default value of mean is 0, standard deviation is 1.
 */
@@ -63,15 +62,7 @@ The default value of mean is 0, standard deviation is 1.
     {
     }
 /**
-@brief The constructor with the given seed.
-@param seed The seed value of the pseudo-random number generator.
-*/
-    NormalDisFunction(unsigned int seed) :
-        mean_(0), stddev_(1)
-    {
-    }
-/**
-@brief The copy constructor, but the pseudo-random number generator renews.
+@brief The copy constructor.
 */
     NormalDisFunction(const NormalDisFunction& rhs) :
         Function<T>(rhs),

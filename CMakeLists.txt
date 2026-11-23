@@ -83,4 +83,15 @@ if(BUILD_TESTING)
     add_test(NAME test_cm_init_and_sdef_update
              COMMAND test_cm_init_and_sdef_update
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_cm_init_and_sdef_update>)
+
+    add_executable(test_random test/test_random.cpp)
+    target_link_libraries(test_random PRIVATE adef::adef)
+    target_compile_definitions(test_random PRIVATE
+                               ADEF_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    set_target_properties(test_random PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_random
+             COMMAND test_random
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_random>)
 endif()
