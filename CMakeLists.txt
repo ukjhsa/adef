@@ -95,4 +95,32 @@ if(BUILD_TESTING)
              COMMAND test_random
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_random>)
     set_tests_properties(test_random PROPERTIES TIMEOUT 120)
+
+    add_executable(test_control_update test/test_control_update.cpp)
+    target_link_libraries(test_control_update PRIVATE adef::adef)
+    set_target_properties(test_control_update PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_control_update
+             COMMAND test_control_update
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_control_update>)
+
+    add_executable(test_control_mechanism test/test_control_mechanism.cpp)
+    target_link_libraries(test_control_mechanism PRIVATE adef::adef)
+    set_target_properties(test_control_mechanism PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_control_mechanism
+             COMMAND test_control_mechanism
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_control_mechanism>)
+
+    add_executable(test_adaptive_de_integration test/test_adaptive_de_integration.cpp)
+    target_link_libraries(test_adaptive_de_integration PRIVATE adef::adef)
+    set_target_properties(test_adaptive_de_integration PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_adaptive_de_integration
+             COMMAND test_adaptive_de_integration
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_adaptive_de_integration>)
+    set_tests_properties(test_adaptive_de_integration PROPERTIES TIMEOUT 120)
 endif()
