@@ -1846,7 +1846,7 @@ bool test_roulette_wheel_repeated_update_characterization()
 
         int once_picked_two = 0;
         int twice_picked_two = 0;
-        constexpr int kDraws = 100;
+        constexpr int kDraws = 400;
         for (int i = 0; i < kDraws; ++i) {
             if (approx_equal(once_fn->generate(), 2.0)) {
                 ++once_picked_two;
@@ -1856,15 +1856,15 @@ bool test_roulette_wheel_repeated_update_characterization()
             }
         }
 
-        // After single update(): 2.0 has weight 1.0 vs eps -> overwhelmingly selected (100/100).
-        // After repeated update(): scores were reset to 0 -> 2.0 loses its dominance completely
-        // (under current epsilon-tie behavior, index 0 is always chosen -> 0/100 for 2.0).
+        // After single update(): 2.0 has score 1.0 vs 0.0 -> selected 100% of the time.
+        // After repeated update(): scores are reset to [0.0, 0.0] -> 2.0 loses its dominance
+        // and selection reverts to uniform sampling across both candidates (~50/50).
         if (!require(once_picked_two == kDraws,
                      "Expected single RouletteWheelSelectionFunction::update() to select winning option 2.0")) {
             return false;
         }
-        if (!require(twice_picked_two == 0,
-                     "Expected repeated RouletteWheelSelectionFunction::update() to clear scores_ and wipe score_ to 0")) {
+        if (!require(twice_picked_two >= 140 && twice_picked_two <= 260,
+                     "Expected repeated RouletteWheelSelectionFunction::update() to clear scores_ and revert to uniform selection")) {
             return false;
         }
     }
@@ -1935,13 +1935,14 @@ bool test_roulette_wheel_repeated_update_characterization()
         cm_twice->update(repos_twice);
 
         // Switch to non-update generation (gen = 3) and observe generated choices.
-        // Note: when all scores are wiped to 0, RouletteWheelSelectionFunction::generate()
-        // clamps each to epsilon and |rnd - epsilon| < epsilon always selects index 0 (1.0).
+        // When all scores are wiped to 0, RouletteWheelSelectionFunction::generate()
+        // falls back to uniform selection across both candidates (~50/50).
         repos_once->parameters()->store("generation", 3u);
         repos_twice->parameters()->store("generation", 3u);
         int cm_once_twos = 0;
         int cm_twice_twos = 0;
-        for (int i = 0; i < 20; ++i) {
+        constexpr int kCmDraws = 400;
+        for (int i = 0; i < kCmDraws; ++i) {
             repos_once->parameters()->store("target_index", std::size_t{0});
             cm_once->update(repos_once);
             if (approx_equal(cm_once->generate(repos_once), 2.0)) {
@@ -1955,8 +1956,9 @@ bool test_roulette_wheel_repeated_update_characterization()
             }
         }
 
-        if (!require(cm_once_twos == 20 && cm_twice_twos == 0,
-                     "Expected repeated SingleControlFunction updates in the same learning_period generation to wipe RouletteWheel scores")) {
+        if (!require(cm_once_twos == kCmDraws &&
+                         cm_twice_twos >= 140 && cm_twice_twos <= 260,
+                     "Expected repeated SingleControlFunction updates in the same learning_period generation to wipe RouletteWheel scores and revert to uniform selection")) {
             return false;
         }
     }
