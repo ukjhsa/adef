@@ -1,7 +1,5 @@
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -16,9 +14,6 @@
 #include "adef.h"
 #include "Configuration.h"
 #include "DEBinomial.h"
-#include "DEMutation.h"
-#include "DERand.h"
-#include "DEVariantY.h"
 #include "Evolution.h"
 #include "Experiment.h"
 #include "ExperimentalStatistics.h"
@@ -26,17 +21,13 @@
 #include "Initializer.h"
 #include "Parameters.h"
 #include "Population.h"
+#include "Problem.h"
 #include "PrototypeManager.h"
 #include "Random.h"
 #include "Repository.h"
 #include "Statistics.h"
 #include "System.h"
 #include "cm/cf/func/NormalDisFunction.h"
-#include "cm/cf/func/RandomSelectionFunction.h"
-#include "cm/cf/func/RouletteWheelSelectionFunction.h"
-#include "cm/cu/SdeFControlUpdate.h"
-#include "problem/basic/QuarticFunctionWithNoise.h"
-#include "problem/basic/Sphere.h"
 
 namespace {
 
@@ -69,11 +60,16 @@ adef::Configuration load_json_config(const std::string& json_text,
 class SequenceRandom : public adef::Random
 {
 public:
-    SequenceRandom() : values_{100u, 200u, 300u, 400u}, pos_(0), draw_count_(0)
+    SequenceRandom() :
+        adef::Random(CustomEngineTag{}),
+        values_{100u, 200u, 300u, 400u},
+        pos_(0),
+        draw_count_(0)
     {
     }
 
     explicit SequenceRandom(std::vector<result_type> values) :
+        adef::Random(CustomEngineTag{}),
         values_(std::move(values)),
         pos_(0),
         draw_count_(0)
@@ -541,6 +537,27 @@ bool test_polymorphic_engines_and_test_doubles(const adef::PrototypeManager& pm)
                      std::isfinite(minstd->generate(cauchy)),
                  "Expected normal and cauchy distributions to work with alternative engines")) {
         return false;
+    }
+
+    // EngineRandom does not embed an unused std::mt19937 inside Random
+    static_assert(sizeof(adef::MinstdRandRandom) < sizeof(std::mt19937),
+                  "EngineRandom should not embed an unused std::mt19937.");
+
+    // EngineRandom::clone() faithfully copies current engine state
+    {
+        for (int i = 0; i < 10; ++i) {
+            (void)mt64->next();
+            (void)minstd->next();
+        }
+        auto mt64_clone = mt64->clone();
+        auto minstd_clone = minstd->clone();
+        for (int i = 0; i < 10; ++i) {
+            if (!require(mt64->next() == mt64_clone->next() &&
+                             minstd->next() == minstd_clone->next(),
+                         "Expected EngineRandom::clone() to preserve current engine state")) {
+                return false;
+            }
+        }
     }
 
     // Temporary (rvalue) distribution passed to generate()
@@ -1052,7 +1069,8 @@ bool test_experiment_multi_run_and_optional_config()
             "example/NSDE.json",
             "example/SaNSDE.json",
             "example/DEPD.json",
-            "example/ISADE.json"
+            "example/ISADE.json",
+            "example/fully_exp.json"
         };
         for (const auto& rel_path : example_files) {
             const std::string full_path = std::string(ADEF_SOURCE_DIR) + "/" + rel_path;

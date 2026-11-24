@@ -233,6 +233,18 @@ Newly sampled indices are appended to @p excluded.
 protected:
 
 /**
+@brief Tag type for derived classes that own a custom PRNG engine and do not
+need the default `std::mt19937` instance allocated by Random.
+*/
+    struct CustomEngineTag {};
+
+/**
+@brief Construct a Random base without allocating the default `std::mt19937`
+engine.
+*/
+    explicit Random(CustomEngineTag, SeedType seed_value = 0);
+
+/**
 @brief Polymorphic hook called by seed() and auto_seed() to seed the underlying
 PRNG engine.
 */
@@ -240,9 +252,10 @@ PRNG engine.
 
     SeedType seed_;
     bool auto_seeded_;
-    std::mt19937 generator_;
 
 private:
+
+    std::unique_ptr<std::mt19937> generator_;
 
     virtual std::shared_ptr<Prototype> clone_impl() const override
     {
@@ -270,13 +283,13 @@ private:
 public:
 
     EngineRandom() :
-        Random(),
+        Random(CustomEngineTag{}),
         engine_(static_cast<typename AdaptedEngine::result_type>(seed_))
     {
     }
 
     explicit EngineRandom(SeedType seed_value) :
-        Random(seed_value),
+        Random(CustomEngineTag{}, seed_value),
         engine_(static_cast<typename AdaptedEngine::result_type>(seed_value))
     {
     }

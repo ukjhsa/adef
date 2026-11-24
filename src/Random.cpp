@@ -82,14 +82,21 @@ std::size_t count_unique_in_range(
 Random::Random() :
     seed_(0),
     auto_seeded_(false),
-    generator_(0)
+    generator_(std::make_unique<std::mt19937>(0))
 {
 }
 
 Random::Random(SeedType seed_value) :
     seed_(seed_value),
     auto_seeded_(false),
-    generator_(seed_value)
+    generator_(std::make_unique<std::mt19937>(seed_value))
+{
+}
+
+Random::Random(CustomEngineTag, SeedType seed_value) :
+    seed_(seed_value),
+    auto_seeded_(false),
+    generator_(nullptr)
 {
 }
 
@@ -97,7 +104,8 @@ Random::Random(const Random& rhs) :
     Prototype(rhs),
     seed_(rhs.seed_),
     auto_seeded_(rhs.auto_seeded_),
-    generator_(rhs.generator_)
+    generator_(rhs.generator_ ? std::make_unique<std::mt19937>(*rhs.generator_)
+                              : nullptr)
 {
 }
 
@@ -221,12 +229,20 @@ std::shared_ptr<Random> Random::derive(std::size_t stream_index) const
 
 Random::result_type Random::next()
 {
-    return static_cast<result_type>(generator_());
+    if (!generator_) {
+        generator_ = std::make_unique<std::mt19937>(seed_);
+    }
+    return static_cast<result_type>((*generator_)());
 }
 
 void Random::seed_engine(SeedType seed_value)
 {
-    generator_.seed(seed_value);
+    if (generator_) {
+        generator_->seed(seed_value);
+    }
+    else {
+        generator_ = std::make_unique<std::mt19937>(seed_value);
+    }
 }
 
 std::size_t Random::uniform_index(std::size_t bound)
