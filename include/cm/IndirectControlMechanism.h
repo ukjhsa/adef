@@ -185,15 +185,55 @@ its configuration should be
 
     void update(std::shared_ptr<Repository> repos) override
     {
-        auto index = repos->parameters()->take_out<std::size_t>("target_index");
-        for (auto& update : updates_) {
-            update->update(repos, parameter_, cm_->generate(repos));
+        if (cm_) {
+            cm_->update(repos);
         }
 
-        cm_->generate(repos)->update();
-        parameter_->reset_already_generated(index);
+        auto index = repos->parameters()->take_out<std::size_t>("target_index");
+        auto leaf = cm_->generate(repos);
+        for (auto& update : updates_) {
+            if (update) {
+                update->update(repos, parameter_, leaf);
+            }
+        }
 
-        cm_->update(repos);
+        leaf->update();
+        parameter_->reset_already_generated(index);
+    }
+
+    void update_generation(std::shared_ptr<Repository> repos) override
+    {
+        if (cm_) {
+            cm_->update_generation(repos);
+        }
+        if (parameter_ && !this->has_individual_updates()) {
+            parameter_->reset_all_already_generated();
+        }
+    }
+
+    void update_individual(std::shared_ptr<Repository> repos) override
+    {
+        if (cm_) {
+            cm_->update_individual(repos);
+        }
+
+        auto index = repos->parameters()->take_out<std::size_t>("target_index");
+        const bool outer_has_individual = this->has_individual_updates();
+        if (!outer_has_individual && parameter_ && parameter_->is_already_generated(index)) {
+            return;
+        }
+
+        auto leaf = cm_->generate(repos);
+        for (auto& update : updates_) {
+            if (update) {
+                update->update(repos, parameter_, leaf);
+            }
+        }
+
+        leaf->update();
+        if (outer_has_individual && parameter_) {
+            parameter_->reset_already_generated(index);
+        }
     }
 
 private:

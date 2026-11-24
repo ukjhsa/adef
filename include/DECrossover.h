@@ -16,7 +16,8 @@ class BaseControlMechanism;
 /**
 @brief DECrossover controls the crossover flow according to the DE algorithm.
 
-crossover() calls ControlMechanism::generate() and ControlMechanism::update() of
+crossover() calls ControlMechanism::update_generation(),
+ControlMechanism::update_individual(), and ControlMechanism::generate() of
 the parameter @em CR.
 
 @par The configuration

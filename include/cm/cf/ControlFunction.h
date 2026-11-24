@@ -1,6 +1,8 @@
 #ifndef CONTROL_FUNCTION_H
 #define CONTROL_FUNCTION_H
 
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include "Prototype.h"
 
@@ -59,6 +61,24 @@ If @em Class is derived from ControlFunction, its configuration should be
 @param index The index of function to return.
 */
     virtual std::shared_ptr<BaseFunction> at(std::size_t index) = 0;
+/**
+@brief Return the number of unique managed functions.
+*/
+    virtual std::size_t number_of_functions() const = 0;
+/**
+@brief Invoke @em func once for each unique managed function.
+*/
+    virtual void for_each_function(
+        const std::function<void(std::shared_ptr<BaseFunction>)>& func)
+    {
+        const auto count = number_of_functions();
+        for (std::size_t idx = 0; idx < count; ++idx) {
+            auto fn = at(idx);
+            if (fn) {
+                func(fn);
+            }
+        }
+    }
 
 private:
 

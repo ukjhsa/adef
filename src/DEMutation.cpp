@@ -47,6 +47,9 @@ void DEMutation::mutate(std::shared_ptr<Repository> repos) const
     auto children = repos->offspring();
 
     std::size_t pop_size = parent->population_size();
+    if (pop_size > 0) {
+        f->update_generation(repos);
+    }
     for (std::size_t target_index = 0; target_index < pop_size; target_index++) {
 
         repos->parameters()->store("target_index", target_index);
@@ -65,7 +68,7 @@ void DEMutation::mutate(std::shared_ptr<Repository> repos) const
         auto difference_vector = variant_y_->difference_vector(rnd_indexes,
                                                                parent);
 
-        f->update(repos);
+        f->update_individual(repos);
         auto scaling_factor = f->generate(repos);
 
         stat_F.push_back(scaling_factor);

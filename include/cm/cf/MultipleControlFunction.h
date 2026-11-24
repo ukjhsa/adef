@@ -68,6 +68,11 @@ its configuration should be
 
     std::shared_ptr<BaseFunction> at(std::size_t index) override;
 
+    std::size_t number_of_functions() const override
+    {
+        return functions_.size();
+    }
+
 private:
 
 /// The function.

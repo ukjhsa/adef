@@ -116,6 +116,16 @@ Call this function to inform the ControlMechanism can generate new object from
 Function with response to the @a index.
 */
     virtual void reset_already_generated(std::size_t index) = 0;
+/**
+@brief Reset the already-generated flags for all managed objects.
+*/
+    virtual void reset_all_already_generated()
+    {
+        const auto count = number_of_objects();
+        for (std::size_t idx = 0; idx < count; ++idx) {
+            reset_already_generated(idx);
+        }
+    }
 
 private:
 

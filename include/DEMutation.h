@@ -18,7 +18,8 @@ class BaseControlMechanism;
 /**
 @brief DEMutation mutate according to the DE algorithm.
 
-mutate() calls ControlMechanism::generate() and ControlMechanism::update() of
+mutate() calls ControlMechanism::update_generation(),
+ControlMechanism::update_individual(), and ControlMechanism::generate() of
 the parameter @em F.
 
 @par The configuration

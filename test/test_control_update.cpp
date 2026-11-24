@@ -687,7 +687,49 @@ bool test_generation_control_update_errors()
     return true;
 }
 
-// 7. Repository::ReadOnlyPopulationScope laziness, single-pass sharing,
+// 7. UpdateScope declarations for all built-in ControlUpdate subclasses and default
+class CustomDefaultScopeUpdate : public adef::ControlUpdate
+{
+public:
+    void setup(const adef::Configuration&, const adef::PrototypeManager&) override {}
+    void update(std::shared_ptr<adef::Repository>,
+                std::shared_ptr<adef::BaseControlParameter>,
+                std::shared_ptr<adef::BaseFunction>) const override {}
+
+private:
+    std::shared_ptr<adef::Prototype> clone_impl() const override
+    {
+        return std::make_shared<CustomDefaultScopeUpdate>(*this);
+    }
+};
+
+bool test_control_update_scopes()
+{
+    adef::AverageFitnessControlUpdate avg_cu;
+    adef::MaxFitnessControlUpdate max_cu;
+    adef::MinFitnessControlUpdate min_cu;
+    adef::GenerationControlUpdate gen_cu;
+    adef::CurrentFitnessControlUpdate cur_cu;
+    adef::SdeFControlUpdate sde_cu;
+    CustomDefaultScopeUpdate custom_cu;
+
+    if (!require(avg_cu.update_scope() == adef::UpdateScope::Generation &&
+                     max_cu.update_scope() == adef::UpdateScope::Generation &&
+                     min_cu.update_scope() == adef::UpdateScope::Generation &&
+                     gen_cu.update_scope() == adef::UpdateScope::Generation,
+                 "Expected Average/Max/Min/Generation ControlUpdate to report UpdateScope::Generation")) {
+        return false;
+    }
+    if (!require(cur_cu.update_scope() == adef::UpdateScope::Individual &&
+                     sde_cu.update_scope() == adef::UpdateScope::Individual &&
+                     custom_cu.update_scope() == adef::UpdateScope::Individual,
+                 "Expected Current/SdeF and default custom ControlUpdate to report UpdateScope::Individual")) {
+        return false;
+    }
+    return true;
+}
+
+// 8. Repository::ReadOnlyPopulationScope laziness, single-pass sharing,
 //    re-entrancy, exception safety, clone isolation, and empty-population contracts
 bool test_read_only_population_scope_and_summary(const adef::PrototypeManager& pm)
 {
@@ -901,6 +943,9 @@ int main()
         return 1;
     }
     if (!test_generation_control_update_errors()) {
+        return 1;
+    }
+    if (!test_control_update_scopes()) {
         return 1;
     }
     if (!test_read_only_population_scope_and_summary(pm)) {

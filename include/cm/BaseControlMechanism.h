@@ -39,6 +39,22 @@ public:
 @brief Update the internal states by the current state.
 */
     virtual void update(std::shared_ptr<Repository> repos) = 0;
+/**
+@brief Perform generation-level updates before the per-individual loop.
+*/
+    virtual void update_generation(std::shared_ptr<Repository> /*repos*/)
+    {
+    }
+/**
+@brief Perform individual-level updates inside the per-individual loop.
+
+Defaults to forwarding to update() for backward compatibility with custom
+subclasses that do not override the two-tier lifecycle.
+*/
+    virtual void update_individual(std::shared_ptr<Repository> repos)
+    {
+        update(repos);
+    }
 
 private:
 

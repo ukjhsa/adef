@@ -1,6 +1,7 @@
 #ifndef MULTIPLE_CONTROL_PARAMETER_H
 #define MULTIPLE_CONTROL_PARAMETER_H
 
+#include <algorithm>
 #include <memory>
 #include <cstddef>
 #include <vector>
@@ -176,6 +177,11 @@ its configuration should be
         already_generated_.at(index) = false;
     }
 
+    void reset_all_already_generated() override
+    {
+        std::fill(already_generated_.begin(), already_generated_.end(), false);
+    }
+
 private:
 
 /// The list of stored objects.
@@ -285,6 +291,11 @@ its configuration should be
     void reset_already_generated(std::size_t index) override
     {
         already_generated_.at(index) = false;
+    }
+
+    void reset_all_already_generated() override
+    {
+        std::fill(already_generated_.begin(), already_generated_.end(), false);
     }
 
 private:

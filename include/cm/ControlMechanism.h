@@ -196,15 +196,114 @@ its configuration should be
     virtual void update(std::shared_ptr<Repository> repos) override
     {
         auto index = repos->parameters()->take_out<std::size_t>("target_index");
+        auto root = function_->at(index);
+        auto target = resolve_update_target(root);
         for (auto& update : updates_) {
-            update->update(repos, parameter_, function_->at(index));
+            if (update) {
+                update->update(repos, parameter_, target);
+            }
         }
 
-        function_->at(index)->update();
+        root->update();
+        parameter_->reset_already_generated(index);
+    }
+/**
+@brief Perform generation-level updates once before the per-individual loop.
+
+Applies generation-scoped ControlUpdate instances across all unique functions.
+When no individual-scoped ControlUpdate exists, also calls Function::update()
+once per unique function and resets all already-generated parameter flags.
+*/
+    virtual void update_generation(std::shared_ptr<Repository> repos) override
+    {
+        const bool has_individual = has_individual_updates();
+        const bool has_generation = has_generation_updates();
+        if (!has_generation && has_individual) {
+            return;
+        }
+
+        if (function_) {
+            function_->for_each_function([&](std::shared_ptr<BaseFunction> root) {
+                if (has_generation) {
+                    auto target = resolve_update_target(root);
+                    for (auto& update : updates_) {
+                        if (update && update->update_scope() == UpdateScope::Generation) {
+                            update->update(repos, parameter_, target);
+                        }
+                    }
+                }
+                if (!has_individual) {
+                    root->update();
+                }
+            });
+        }
+
+        if (!has_individual && parameter_) {
+            parameter_->reset_all_already_generated();
+        }
+    }
+/**
+@brief Perform individual-level updates inside the per-individual loop.
+
+No-op when no individual-scoped ControlUpdate exists. Otherwise applies
+individual-scoped ControlUpdate instances, calls Function::update(), and
+resets the already-generated flag for the current target_index.
+*/
+    virtual void update_individual(std::shared_ptr<Repository> repos) override
+    {
+        if (!has_individual_updates()) {
+            return;
+        }
+
+        auto index = repos->parameters()->take_out<std::size_t>("target_index");
+        auto root = function_->at(index);
+        auto target = resolve_update_target(root);
+        for (auto& update : updates_) {
+            if (update && update->update_scope() == UpdateScope::Individual) {
+                update->update(repos, parameter_, target);
+            }
+        }
+
+        root->update();
         parameter_->reset_already_generated(index);
     }
 
 protected:
+
+/**
+@brief Resolve the BaseFunction target that receives ControlUpdate::update().
+*/
+    virtual std::shared_ptr<BaseFunction> resolve_update_target(
+        std::shared_ptr<BaseFunction> root) const
+    {
+        return root;
+    }
+
+/**
+@brief Check whether updates_ contains any generation-scoped ControlUpdate.
+*/
+    bool has_generation_updates() const
+    {
+        for (const auto& update : updates_) {
+            if (update && update->update_scope() == UpdateScope::Generation) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+/**
+@brief Check whether updates_ contains any individual-scoped ControlUpdate.
+*/
+    bool has_individual_updates() const
+    {
+        for (const auto& update : updates_) {
+            if (update && update->update_scope() == UpdateScope::Individual) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 /// The type of pointer to the ControlRange.
     using CRPtr = std::shared_ptr<ControlRange<Object>>;

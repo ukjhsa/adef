@@ -42,11 +42,14 @@ void DECrossover::crossover(std::shared_ptr<Repository> repos) const
     auto trial = repos->offspring();
     std::size_t pop_size = target->population_size();
 
+    if (pop_size > 0) {
+        cr->update_generation(repos);
+    }
     for (std::size_t idx = 0; idx < pop_size; ++idx) {
 
         repos->parameters()->store("target_index", idx);
 
-        cr->update(repos);
+        cr->update_individual(repos);
         auto crossover_rate = cr->generate(repos);
 
         stat_CR.push_back(crossover_rate);
