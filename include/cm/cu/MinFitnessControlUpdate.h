@@ -11,7 +11,6 @@ class PrototypeManager;
 class Repository;
 class BaseControlParameter;
 class BaseFunction;
-class Population;
 
 /**
 @brief MinFitnessControlUpdate updates internal states by
@@ -56,10 +55,6 @@ its configuration should be
     void update(std::shared_ptr<Repository> repos,
                 std::shared_ptr<BaseControlParameter> parameter,
                 std::shared_ptr<BaseFunction> function) const override;
-
-private:
-
-    double find_min_fitness(std::shared_ptr<const Population> pop) const;
 
 private:
 

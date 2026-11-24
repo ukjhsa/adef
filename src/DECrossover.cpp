@@ -34,6 +34,7 @@ void DECrossover::init(std::shared_ptr<Repository> repos)
 
 void DECrossover::crossover(std::shared_ptr<Repository> repos) const
 {
+    auto scope = repos->enter_read_only_population_scope();
     auto cr = std::dynamic_pointer_cast<ControlMechanism<double>>(cr_);
     std::vector<double> stat_CR;
 

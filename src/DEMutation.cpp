@@ -39,6 +39,7 @@ void DEMutation::init(std::shared_ptr<Repository> repos)
 
 void DEMutation::mutate(std::shared_ptr<Repository> repos) const
 {
+    auto scope = repos->enter_read_only_population_scope();
     auto f = std::dynamic_pointer_cast<ControlMechanism<double>>(f_);
     std::vector<double> stat_F;
 

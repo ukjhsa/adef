@@ -20,10 +20,13 @@ void DEReproduction::init(std::shared_ptr<Repository> repos)
 
 void DEReproduction::reproduce(std::shared_ptr<Repository> repos) const
 {
-    // mutation
-    repos->mutation()->mutate(repos);
-    // crossover
-    repos->crossover()->crossover(repos);
+    {
+        auto scope = repos->enter_read_only_population_scope();
+        // mutation
+        repos->mutation()->mutate(repos);
+        // crossover
+        repos->crossover()->crossover(repos);
+    }
     // repair
     repos->repair()->repair(repos);
 }

@@ -314,6 +314,76 @@ std::vector<AlgorithmCase> make_algorithm_cases()
 {
     std::vector<AlgorithmCase> cases;
 
+    // 0a. rand1bin: SingleControlFunction + SingleControlParameter + ConstantFunction
+    cases.push_back({
+        "rand1bin",
+        0.0, 1.0,
+        0.0, 1.0,
+        R"({
+            "classname": "RealControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealSingleControlParameter" },
+            "ControlFunction": {
+                "classname": "SingleControlFunction",
+                "Function": { "classname": "RealConstantFunction", "object": 0.5 }
+            },
+            "ControlSelection": { "classname": "NonInfoControlSelection" },
+            "ControlUpdate": []
+        })",
+        R"({
+            "classname": "RealControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealSingleControlParameter" },
+            "ControlFunction": {
+                "classname": "SingleControlFunction",
+                "Function": { "classname": "RealConstantFunction", "object": 0.5 }
+            },
+            "ControlSelection": { "classname": "NonInfoControlSelection" },
+            "ControlUpdate": []
+        })"
+    });
+
+    // 0b. jDE: MultipleControlFunction + MultipleControlParameter + BetterOffspringControlSelection
+    cases.push_back({
+        "jDE",
+        0.1, 1.0,
+        0.0, 1.0,
+        R"({
+            "classname": "RealControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.1, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealMultipleControlParameter", "number_of_objects": 10 },
+            "ControlFunction": {
+                "classname": "MultipleControlFunction",
+                "number_of_functions": 10,
+                "Function": {
+                    "classname": "JdeFFunction",
+                    "object": { "classname": "RealVariableFunction", "object": 0.5 },
+                    "lower_bound": { "classname": "RealConstantFunction", "object": 0.1 },
+                    "upper_bound": { "classname": "RealConstantFunction", "object": 0.9 },
+                    "tau": { "classname": "RealConstantFunction", "object": 0.1 }
+                }
+            },
+            "ControlSelection": { "classname": "RealBetterOffspringControlSelection" },
+            "ControlUpdate": []
+        })",
+        R"({
+            "classname": "RealControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealMultipleControlParameter", "number_of_objects": 10 },
+            "ControlFunction": {
+                "classname": "MultipleControlFunction",
+                "number_of_functions": 10,
+                "Function": {
+                    "classname": "JdeCrFunction",
+                    "object": { "classname": "RealVariableFunction", "object": 0.9 },
+                    "tau": { "classname": "RealConstantFunction", "object": 0.1 }
+                }
+            },
+            "ControlSelection": { "classname": "RealBetterOffspringControlSelection" },
+            "ControlUpdate": []
+        })"
+    });
+
     // 1. DEPD: SingleControlFunction + SingleControlParameter + Min/MaxFitnessControlUpdate
     cases.push_back({
         "DEPD",
@@ -645,7 +715,7 @@ int main()
         }
     }
 
-    std::cout << "All adaptive DE deterministic integration tests passed (DEPD, ISADE, SaDE, SDE, NSDE, SaNSDE)."
+    std::cout << "All adaptive DE deterministic integration tests passed (rand1bin, jDE, DEPD, ISADE, SaDE, SDE, NSDE, SaNSDE)."
               << std::endl;
     return 0;
 }

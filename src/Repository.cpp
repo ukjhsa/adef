@@ -1,4 +1,7 @@
+#include <cstddef>
 #include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include "Repository.h"
 #include "Configuration.h"
@@ -10,6 +13,7 @@
 #include "Initializer.h"
 #include "Evaluator.h"
 #include "Population.h"
+#include "Individual.h"
 #include "Reproduction.h"
 #include "EnvironmentalSelection.h"
 #include "Mutation.h"
@@ -19,12 +23,45 @@
 
 namespace adef {
 
-Repository::Repository() : algorithm_name_("algorithm")
+Repository::ReadOnlyPopulationScope::ReadOnlyPopulationScope(Repository* repos) noexcept :
+    repos_(repos)
+{
+    if (repos_ != nullptr) {
+        ++repos_->read_only_population_scope_depth_;
+    }
+}
+
+Repository::ReadOnlyPopulationScope::ReadOnlyPopulationScope(
+    const std::shared_ptr<Repository>& repos) noexcept :
+    ReadOnlyPopulationScope(repos.get())
+{
+}
+
+Repository::ReadOnlyPopulationScope::ReadOnlyPopulationScope(
+    ReadOnlyPopulationScope&& other) noexcept :
+    repos_(other.repos_)
+{
+    other.repos_ = nullptr;
+}
+
+Repository::ReadOnlyPopulationScope::~ReadOnlyPopulationScope() noexcept
+{
+    if (repos_ != nullptr) {
+        repos_->exit_read_only_population_scope();
+    }
+}
+
+Repository::Repository() :
+    algorithm_name_("algorithm"),
+    read_only_population_scope_depth_(0),
+    population_fitness_summary_(std::nullopt)
 {
 }
 
 Repository::Repository(const Repository& rhs) : Prototype(rhs),
-    enable_shared_from_this(rhs), algorithm_name_(rhs.algorithm_name_)
+    enable_shared_from_this(rhs), algorithm_name_(rhs.algorithm_name_),
+    read_only_population_scope_depth_(0),
+    population_fitness_summary_(std::nullopt)
 {
     if (rhs.random_) { random_ = rhs.random_->clone(); }
     if (rhs.evolution_) { evolution_ = rhs.evolution_->clone(); }
@@ -73,6 +110,7 @@ void Repository::setup(const Configuration& config, const PrototypeManager& pm)
 
 void Repository::init(std::shared_ptr<Random> random)
 {
+    population_fitness_summary_.reset();
     random_ = random;
 
     evolution_->init(shared_from_this());
@@ -91,6 +129,68 @@ void Repository::init(std::shared_ptr<Random> random)
     mutation_->init(shared_from_this());
     crossover_->init(shared_from_this());
     repair_->init(shared_from_this());
+}
+
+Repository::ReadOnlyPopulationScope Repository::enter_read_only_population_scope() noexcept
+{
+    return ReadOnlyPopulationScope(this);
+}
+
+void Repository::exit_read_only_population_scope() noexcept
+{
+    if (read_only_population_scope_depth_ > 0) {
+        --read_only_population_scope_depth_;
+        if (read_only_population_scope_depth_ == 0) {
+            population_fitness_summary_.reset();
+        }
+    }
+}
+
+PopulationFitnessSummary Repository::population_fitness_summary() const
+{
+    if (read_only_population_scope_depth_ > 0) {
+        if (!population_fitness_summary_.has_value()) {
+            population_fitness_summary_ = compute_population_fitness_summary();
+        }
+        return *population_fitness_summary_;
+    }
+    return compute_population_fitness_summary();
+}
+
+PopulationFitnessSummary Repository::compute_population_fitness_summary() const
+{
+    if (!population_) {
+        throw std::logic_error("Repository population is null");
+    }
+
+    PopulationFitnessSummary summary;
+    const auto pop_size = population_->population_size();
+    summary.count = pop_size;
+    if (pop_size == 0) {
+        return summary;
+    }
+
+    const double first = population_->at(0)->fitness();
+    double sum = 0.0;
+    sum += first;
+    double min_val = first;
+    double max_val = first;
+
+    for (std::size_t idx = 1; idx < pop_size; ++idx) {
+        const double current = population_->at(idx)->fitness();
+        sum += current;
+        if (min_val > current) {
+            min_val = current;
+        }
+        if (max_val < current) {
+            max_val = current;
+        }
+    }
+
+    summary.min = min_val;
+    summary.max = max_val;
+    summary.average = sum / static_cast<double>(pop_size);
+    return summary;
 }
 
 }
