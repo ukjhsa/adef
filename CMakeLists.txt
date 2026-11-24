@@ -123,4 +123,13 @@ if(BUILD_TESTING)
              COMMAND test_adaptive_de_integration
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_adaptive_de_integration>)
     set_tests_properties(test_adaptive_de_integration PROPERTIES TIMEOUT 120)
+
+    add_executable(test_roulette_wheel_selection test/test_roulette_wheel_selection.cpp)
+    target_link_libraries(test_roulette_wheel_selection PRIVATE adef::adef)
+    set_target_properties(test_roulette_wheel_selection PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_roulette_wheel_selection
+             COMMAND test_roulette_wheel_selection
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_roulette_wheel_selection>)
 endif()

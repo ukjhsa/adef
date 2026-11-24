@@ -7,6 +7,7 @@
 #include <random>
 #include <list>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <any>
@@ -181,38 +182,55 @@ its configuration should be
         if (valued_objects_.empty()) {
             throw std::logic_error("RouletteWheelSelectionFunction has no objects.");
         }
-        Score sum_score = 0;
-        for (auto& valued_object : valued_objects_) {
 
-            if (valued_object.score_ < std::numeric_limits<Score>::epsilon()) {
-                valued_object.score_ = std::numeric_limits<Score>::epsilon();
+        Score max_score = 0;
+        for (const auto& valued_object : valued_objects_) {
+            if (valued_object.score_ > max_score) {
+                max_score = valued_object.score_;
             }
-            sum_score += valued_object.score_;
         }
 
-        // if sum of score is zero, randomly select
-        if (std::abs(sum_score) < std::numeric_limits<Score>::epsilon()) {
-
+        // If all scores are non-positive (including all zero), select uniformly at random.
+        if (!(max_score > Score{0})) {
             auto index = BaseFunction::random_->uniform_index(valued_objects_.size());
             return valued_objects_.at(index).object_.object;
         }
-        else {
 
-            std::uniform_real_distribution<Score> uniform(0, sum_score);
-            Score rnd = BaseFunction::random_->generate(uniform);
-
-            Score cumulative_weight = 0;
-            for (auto& valued_object : valued_objects_) {
-
-                cumulative_weight += valued_object.score_;
-                if (rnd < cumulative_weight ||
-                    std::abs(rnd-cumulative_weight) < std::numeric_limits<Score>::epsilon()) {
-
-                    return valued_object.object_.object;
-                }
+        const bool has_infinite_score = std::isinf(max_score);
+        auto normalized_weight = [max_score, has_infinite_score](Score score) -> Score {
+            if (has_infinite_score) {
+                return (std::isinf(score) && score > Score{0}) ? Score{1} : Score{0};
             }
-            throw std::logic_error("RouletteWheelSelectionFunction generate error.");
+            return score > Score{0} ? score / max_score : Score{0};
+        };
+
+        Score sum_weight = 0;
+        std::size_t last_positive_index = 0;
+        for (std::size_t idx = 0; idx < valued_objects_.size(); ++idx) {
+            const Score weight = normalized_weight(valued_objects_[idx].score_);
+            if (weight > Score{0}) {
+                sum_weight += weight;
+                last_positive_index = idx;
+            }
         }
+
+        std::uniform_real_distribution<Score> uniform(Score{0}, sum_weight);
+        const Score rnd = BaseFunction::random_->generate(uniform);
+
+        Score cumulative_weight = 0;
+        for (std::size_t idx = 0; idx < valued_objects_.size(); ++idx) {
+            const Score weight = normalized_weight(valued_objects_[idx].score_);
+            if (weight <= Score{0}) {
+                continue;
+            }
+            cumulative_weight += weight;
+            if (rnd < cumulative_weight) {
+                return valued_objects_[idx].object_.object;
+            }
+        }
+
+        // Fallback for floating-point rounding at the upper boundary.
+        return valued_objects_.at(last_positive_index).object_.object;
     }
 
     bool record(const std::vector<std::any>& params,
