@@ -1,6 +1,5 @@
 #include <memory>
 #include <vector>
-#include <cstdlib>
 #include "DEMutation.h"
 #include "DEVariantX.h"
 #include "DEVariantY.h"
@@ -53,15 +52,15 @@ void DEMutation::mutate(std::shared_ptr<Repository> repos) const
 
         std::vector<std::size_t> used_indexes{target_index};
 
-        auto rnd_indexes = exclusive_random_number_generator(
-                                used_indexes, variant_x_->number_of_indexes(),
-                                0, parent->population_size());
+        auto rnd_indexes = random_->sample_exclusive_indices(
+                                variant_x_->number_of_indexes(),
+                                0, pop_size, used_indexes);
         auto base_vector = variant_x_->base_vector(
                                             target_index, rnd_indexes, parent);
 
-        rnd_indexes = exclusive_random_number_generator(
-                                used_indexes, variant_y_->number_of_indexes(),
-                                0, parent->population_size());
+        rnd_indexes = random_->sample_exclusive_indices(
+                                variant_y_->number_of_indexes(),
+                                0, pop_size, used_indexes);
         auto difference_vector = variant_y_->difference_vector(rnd_indexes,
                                                                parent);
 
@@ -89,33 +88,6 @@ std::shared_ptr<Individual> DEMutation::mutate(
         *mutant_vector += (F * *diff);
     }
     return mutant_vector;
-}
-
-std::vector<std::size_t> DEMutation::exclusive_random_number_generator(
-                                       std::vector<std::size_t>& used_numbers,
-                                       unsigned int number_of_result,
-                                       unsigned int min_range,
-                                       unsigned int max_range) const
-{
-    std::vector<std::size_t> result(number_of_result);
-    for (auto& res : result) {
-
-        std::size_t rnd = 0;
-        for (std::size_t counter = 0; counter < used_numbers.size(); ) {
-            rnd = random_->random() % (max_range - min_range) + min_range;
-            for (auto used : used_numbers) {
-                if (rnd == used) {
-                    counter = 0;
-                    break;
-                }
-                ++counter;
-            }
-        }
-        res = rnd;
-        used_numbers.push_back(rnd);
-    }
-
-    return result;
 }
 
 }

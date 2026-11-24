@@ -60,7 +60,7 @@ public:
     using Score = typename ScoredFunction<T>::Score;
 
 /**
-@brief The default constructor with seed value 1.
+@brief The default constructor.
 
 The default value of the maximum of score size is 0.
 */
@@ -69,15 +69,7 @@ The default value of the maximum of score size is 0.
     {
     }
 /**
-@brief The constructor with the given seed.
-@param seed The seed value of the pseudo-random number generator.
-*/
-    RouletteWheelSelectionFunction(unsigned int seed) :
-        score_size_(0)
-    {
-    }
-/**
-@brief The copy constructor, but the pseudo-random number generator renews.
+@brief The copy constructor.
 */
     RouletteWheelSelectionFunction(const RouletteWheelSelectionFunction& rhs) :
         ScoredFunction<T>(rhs),
@@ -186,6 +178,9 @@ its configuration should be
 
     Object generate() override
     {
+        if (valued_objects_.empty()) {
+            throw std::logic_error("RouletteWheelSelectionFunction has no objects.");
+        }
         Score sum_score = 0;
         for (auto& valued_object : valued_objects_) {
 
@@ -198,8 +193,7 @@ its configuration should be
         // if sum of score is zero, randomly select
         if (std::abs(sum_score) < std::numeric_limits<Score>::epsilon()) {
 
-            std::uniform_int_distribution<> uniform(0, valued_objects_.size() -1);
-            unsigned int index = BaseFunction::random_->generate(uniform);
+            auto index = BaseFunction::random_->uniform_index(valued_objects_.size());
             return valued_objects_.at(index).object_.object;
         }
         else {

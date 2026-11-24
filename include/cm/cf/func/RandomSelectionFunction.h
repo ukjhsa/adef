@@ -6,8 +6,6 @@
 #include <string>
 #include <any>
 #include <cstddef>
-#include <cstdlib>
-#include <random>
 #include <stdexcept>
 #include "Function.h"
 #include "Configuration.h"
@@ -54,7 +52,7 @@ public:
     using Object = typename Function<T>::Object;
 
 /**
-@brief The default constructor with seed value 1.
+@brief The default constructor.
 */
     RandomSelectionFunction() :
         objects_()
@@ -62,16 +60,7 @@ public:
     }
 
 /**
-@brief The constructor with the given seed.
-@param seed The seed value of the pseudo-random number generator.
-*/
-    RandomSelectionFunction(unsigned int seed) :
-        objects_()
-    {
-    }
-
-/**
-@brief The copy constructor, but the pseudo-random number generator renews.
+@brief The copy constructor.
 */
     RandomSelectionFunction(const RandomSelectionFunction& rhs) :
         Function<T>(rhs),
@@ -161,8 +150,7 @@ its configuration should be
         if (objects_.empty()) {
             throw std::logic_error("RandomSelectionFunction has no objects.");
         }
-        std::uniform_int_distribution<std::size_t> uniform(0, objects_.size() - 1);
-        auto index = BaseFunction::random_->generate(uniform);
+        auto index = BaseFunction::random_->uniform_index(objects_.size());
 
         return objects_.at(index).object;
     }

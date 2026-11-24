@@ -10,7 +10,6 @@ namespace adef {
 class Configuration;
 class PrototypeManager;
 class Repository;
-class Random;
 
 /**
 @brief SdeFControlUpdate updates internal states by
@@ -53,15 +52,6 @@ its configuration should be
     void update(std::shared_ptr<Repository> repos,
         std::shared_ptr<BaseControlParameter> parameter,
         std::shared_ptr<BaseFunction> function) const override;
-
-private:
-
-    std::vector<std::size_t> exclusive_random_generator(
-        std::vector<std::size_t>& used_numbers,
-        unsigned int number_of_result,
-        unsigned int min_range,
-        unsigned int max_range,
-        std::shared_ptr<Random> random) const;
 
 private:
 

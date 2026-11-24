@@ -46,6 +46,9 @@ void register_type(PrototypeManager& pm)
     pm.register_type("ExperimentalStatistics",
                      std::make_shared<ExperimentalStatistics>());
     pm.register_type("Random", std::make_shared<Random>());
+    pm.register_type("Mt19937Random", std::make_shared<Mt19937Random>());
+    pm.register_type("Mt19937_64Random", std::make_shared<Mt19937_64Random>());
+    pm.register_type("MinstdRandRandom", std::make_shared<MinstdRandRandom>());
     pm.register_type("Repository", std::make_shared<Repository>());
 
     pm.register_type("Evolution", std::make_shared<Evolution>());

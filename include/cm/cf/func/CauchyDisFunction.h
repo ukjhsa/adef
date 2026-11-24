@@ -4,7 +4,6 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include <cstdlib>
 #include <random>
 #include "Function.h"
 #include "Configuration.h"
@@ -56,7 +55,7 @@ public:
 public:
 
 /**
-@brief The default constructor with seed value 1.
+@brief The default constructor.
 
 The default value of location is 0, scale is 1.
 */
@@ -65,17 +64,7 @@ The default value of location is 0, scale is 1.
     {
     }
 /**
-@brief The constructor with the given seed.
-@param seed The seed value of the pseudo-random number generator.
-
-The default value of location is 0, scale is 1.
-*/
-    CauchyDisFunction(unsigned int seed) :
-        location_(0), scale_(1)
-    {
-    }
-/**
-@brief The copy constructor, but the pseudo-random number generator renews.
+@brief The copy constructor.
 */
     CauchyDisFunction(const CauchyDisFunction& rhs) :
         Function<T>(rhs),
