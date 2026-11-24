@@ -745,6 +745,7 @@ private:
 };
 
 struct SdeOrderTrace {
+    std::size_t draws_after_init = 0;
     std::vector<std::size_t> target_indices;
     std::vector<std::size_t> draws_before_update;
     std::vector<std::size_t> draws_after_update;
@@ -1537,23 +1538,45 @@ bool test_prototype_clone_isolation()
     };
 
     // Verify helper:
-    // 1. Clone clean reference before mutating anything.
-    // 2. Clone worker and heavily mutate it (many gens, better offspring, distinct seed).
-    // 3. Clone fresh instance AFTER worker mutation.
-    // 4. Verify fresh clone and original prototype match clean reference identically.
+    // 1. Clone clean reference and capture pristine baseline BEFORE mutating anything.
+    // 2. Initialize a live clone and cache index 0 BEFORE mutating worker clone.
+    // 3. Clone worker and heavily mutate it (many gens, better offspring, distinct seed).
+    // 4. Verify live clone's cached state was not corrupted by worker mutation.
+    // 5. Clone fresh instance AFTER worker mutation and verify it and original prototype match baseline.
     auto verify_variant_isolation = [&](std::shared_ptr<adef::ControlMechanism<double>> proto,
                                         std::size_t pop_size,
                                         const std::string& label) {
         auto ref_clone = proto->clone();
+        auto live_clone = proto->clone();
         auto mutated_clone = proto->clone();
+
+        const auto ref_out = drive_cm(ref_clone, pop_size, 4, 1234u, true, label + "_ref");
+
+        auto live_repos = std::make_shared<TestRepository>();
+        live_repos->set_random(std::make_shared<adef::Random>(1234u));
+        live_repos->set_population(make_population_with_fitness(
+            std::vector<double>(pop_size, 10.0), pm, "clone_live_p_" + label));
+        live_repos->set_offspring(make_population_with_fitness(
+            std::vector<double>(pop_size, 2.0), pm, "clone_live_o_" + label));
+        live_clone->init(live_repos);
+        live_repos->parameters()->store("generation", 1u);
+        live_repos->parameters()->store("target_index", std::size_t{0});
+        live_clone->update(live_repos);
+        const double live_cached_before = live_clone->generate(live_repos);
 
         const auto mutated_out = drive_cm(mutated_clone, pop_size, 6, 999u, true, label + "_mut");
         if (!require(!mutated_out.empty(), label + ": mutated clone produced no values")) {
             return false;
         }
 
+        const double live_cached_after = live_clone->generate(live_repos);
+        if (!require(approx_equal(live_cached_before, ref_out[0]) &&
+                         approx_equal(live_cached_after, live_cached_before),
+                     label + ": mutating cloned instance corrupted another live clone's cached state")) {
+            return false;
+        }
+
         auto post_clone = proto->clone();
-        const auto ref_out = drive_cm(ref_clone, pop_size, 4, 1234u, true, label + "_ref");
         const auto post_out = drive_cm(post_clone, pop_size, 4, 1234u, true, label + "_post");
         const auto proto_out = drive_cm(proto, pop_size, 4, 1234u, true, label + "_proto");
 
@@ -1666,6 +1689,26 @@ bool test_prototype_clone_isolation()
         })", "test_cm_clone_sde.json");
         auto proto = adef::make_and_setup_type<adef::SdeFControlMechanism>(cfg, pm);
         if (!verify_variant_isolation(proto, 4, "SdeFControlMechanism")) {
+            return false;
+        }
+    }
+
+    // Variant 3b: SdeFControlMechanism with StatefulCounterUpdate
+    {
+        auto cfg = load_json_config(R"({
+            "classname": "SdeFControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 100.0 },
+            "ControlParameter": { "classname": "RealMultipleControlParameter", "number_of_objects": 3 },
+            "ControlFunction": {
+                "classname": "MultipleControlFunction",
+                "number_of_functions": 3,
+                "Function": { "classname": "StatefulValueFunction" }
+            },
+            "ControlSelection": { "classname": "RealBetterOffspringControlSelection" },
+            "ControlUpdate": [ { "classname": "StatefulCounterUpdate" } ]
+        })", "test_cm_clone_sde_cu.json");
+        auto proto = adef::make_and_setup_type<adef::SdeFControlMechanism>(cfg, pm);
+        if (!verify_variant_isolation(proto, 3, "SdeFControlMechanism(StatefulCU)")) {
             return false;
         }
     }
@@ -2021,6 +2064,9 @@ bool test_demutation_sde_f_behavior_and_order()
         }
 
         mutation->init(repos);
+        if (trace) {
+            trace->draws_after_init = rng->draw_count();
+        }
         mutation->mutate(repos);
 
         PassResult res;
@@ -2088,6 +2134,12 @@ bool test_demutation_sde_f_behavior_and_order()
         if (!require(trace->target_indices[i] == i,
                      "Expected target_index execution order 0..pop_size-1")) {
             return false;
+        }
+        if (i == 0) {
+            if (!require(trace->draws_before_update[0] > trace->draws_after_init,
+                         "Expected DEMutation index sampling to consume RNG draws before individual 0's SdeFControlUpdate")) {
+                return false;
+            }
         }
         if (!require(trace->draws_after_update[i] > trace->draws_before_update[i],
                      "Expected SdeFControlUpdate to consume RNG draws during update()")) {
