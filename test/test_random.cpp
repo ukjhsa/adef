@@ -115,29 +115,100 @@ private:
     }
 };
 
-class ConstantRandom : public adef::Random
+class RecordingRandom : public adef::Random
 {
 public:
-    explicit ConstantRandom(result_type constant = 0) : constant_(constant)
+    explicit RecordingRandom(SeedType seed_value) : adef::Random(seed_value)
+    {
+    }
+
+    RecordingRandom(const RecordingRandom& rhs) :
+        adef::Random(rhs),
+        recorded_(rhs.recorded_)
     {
     }
 
     result_type next() override
     {
-        return constant_;
+        const result_type val = adef::Random::next();
+        recorded_.push_back(val);
+        return val;
     }
 
-protected:
-    void seed_engine(SeedType) override
+    const std::vector<result_type>& recorded() const noexcept
     {
+        return recorded_;
     }
 
 private:
-    result_type constant_;
+    std::vector<result_type> recorded_;
 
     std::shared_ptr<adef::Prototype> clone_impl() const override
     {
-        return std::make_shared<ConstantRandom>(*this);
+        return std::make_shared<RecordingRandom>(*this);
+    }
+};
+
+class RepeatingWordSequenceRandom : public adef::Random
+{
+public:
+    RepeatingWordSequenceRandom(std::vector<result_type> pattern,
+                                std::size_t max_pattern_cycles,
+                                SeedType fallback_seed = 42u) :
+        adef::Random(fallback_seed),
+        pattern_(std::move(pattern)),
+        remaining_cycles_(max_pattern_cycles),
+        pos_(0),
+        pattern_draws_(0),
+        fallback_draws_(0)
+    {
+    }
+
+    RepeatingWordSequenceRandom(const RepeatingWordSequenceRandom& rhs) :
+        adef::Random(rhs),
+        pattern_(rhs.pattern_),
+        remaining_cycles_(rhs.remaining_cycles_),
+        pos_(rhs.pos_),
+        pattern_draws_(rhs.pattern_draws_),
+        fallback_draws_(rhs.fallback_draws_)
+    {
+    }
+
+    result_type next() override
+    {
+        if (!pattern_.empty() && remaining_cycles_ > 0) {
+            const result_type val = pattern_[pos_++];
+            ++pattern_draws_;
+            if (pos_ == pattern_.size()) {
+                pos_ = 0;
+                --remaining_cycles_;
+            }
+            return val;
+        }
+        ++fallback_draws_;
+        return adef::Random::next();
+    }
+
+    std::size_t pattern_draws() const noexcept { return pattern_draws_; }
+    std::size_t fallback_draws() const noexcept { return fallback_draws_; }
+
+protected:
+    void seed_engine(SeedType seed_value) override
+    {
+        adef::Random::seed_engine(seed_value);
+        pos_ = 0;
+    }
+
+private:
+    std::vector<result_type> pattern_;
+    std::size_t remaining_cycles_;
+    std::size_t pos_;
+    std::size_t pattern_draws_;
+    std::size_t fallback_draws_;
+
+    std::shared_ptr<adef::Prototype> clone_impl() const override
+    {
+        return std::make_shared<RepeatingWordSequenceRandom>(*this);
     }
 };
 
@@ -701,14 +772,36 @@ bool test_unbiased_and_exclusive_sampling()
         }
     }
 
-    // sample_exclusive_indices: degenerate constant mock RNG still terminates cleanly
+    // sample_exclusive_indices: excessive collisions trigger Fisher-Yates fallback
     {
-        ConstantRandom constant_rng(0);
-        std::vector<std::size_t> excluded{0};
-        auto res = constant_rng.sample_exclusive_indices(3, 0, 50, excluded);
+        // Probe a real uniform_int(0, 49) draw on the active STL to capture a
+        // valid accepted raw word sequence and its mapped index, avoiding
+        // non-conforming constant-0 URBGs that hang Lemire-based distributions
+        // in libstdc++ and MSVC STL.
+        RecordingRandom probe(12345u);
+        const std::size_t collided_index = probe.uniform_int<std::size_t>(0, 49);
+        const auto& accepted_words = probe.recorded();
+        if (!require(!accepted_words.empty() && collided_index < 50,
+                     "Expected probe draw to record raw words for uniform_int(0, 49)")) {
+            return false;
+        }
+
+        // Repeat the accepted word sequence for max_attempts = count * 64 draws
+        // so every rejection-sampling attempt collides with collided_index,
+        // then switch to the underlying std::mt19937 for the Fisher-Yates fallback.
+        constexpr std::size_t kCount = 3;
+        constexpr std::size_t kMaxAttempts = kCount * 64;
+        RepeatingWordSequenceRandom colliding_rng(accepted_words, kMaxAttempts, 98765u);
+        std::vector<std::size_t> excluded{collided_index};
+        auto res = colliding_rng.sample_exclusive_indices(kCount, 0, 50, excluded);
+
         std::set<std::size_t> unique_vals(res.begin(), res.end());
-        if (!require(unique_vals.size() == 3 && unique_vals.count(0) == 0,
-                     "Expected fallback Fisher-Yates to terminate cleanly even with constant RNG")) {
+        if (!require(res.size() == kCount &&
+                         unique_vals.size() == kCount &&
+                         unique_vals.count(collided_index) == 0 &&
+                         colliding_rng.pattern_draws() == accepted_words.size() * kMaxAttempts &&
+                         colliding_rng.fallback_draws() > 0,
+                     "Expected excessive collisions to trigger Fisher-Yates fallback cleanly")) {
             return false;
         }
     }

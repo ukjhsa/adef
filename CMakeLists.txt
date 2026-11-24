@@ -94,4 +94,5 @@ if(BUILD_TESTING)
     add_test(NAME test_random
              COMMAND test_random
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_random>)
+    set_tests_properties(test_random PROPERTIES TIMEOUT 120)
 endif()

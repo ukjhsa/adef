@@ -297,7 +297,8 @@ std::vector<std::size_t> Random::sample_exclusive_indices(
     }
 
     // Low fill ratio: rejection sampling with bounded retries fallback
-    // (guarantees termination even for degenerate deterministic test doubles).
+    // (prevents unbounded retries on repeated collisions while expecting
+    // a standard-conforming URBG for underlying <random> distributions).
     const bool use_hash =
         !excluded_set.empty() || (excluded.size() + count > kSmallExcludedThreshold);
     if (use_hash) {
