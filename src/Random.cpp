@@ -326,6 +326,7 @@ std::vector<std::size_t> Random::sample_exclusive_indices(
         (count > std::numeric_limits<std::size_t>::max() / kMaxRejectionsPerDraw)
             ? std::numeric_limits<std::size_t>::max()
             : count * kMaxRejectionsPerDraw;
+    const std::size_t initial_excluded_size = excluded.size();
 
     for (std::size_t attempts = 0; result.size() < count; ++attempts) {
         if (attempts >= max_attempts) {
@@ -334,6 +335,7 @@ std::vector<std::size_t> Random::sample_exclusive_indices(
                 finish_with_fisher_yates(result);
                 return result;
             }
+            excluded.resize(initial_excluded_size);
             throw std::runtime_error(
                 "Random::sample_exclusive_indices failed to find distinct "
                 "indices after excessive rejections.");

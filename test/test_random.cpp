@@ -823,6 +823,38 @@ bool test_unbiased_and_exclusive_sampling()
         }
     }
 
+    // sample_exclusive_indices: excessive rejections on large range throw without mutating excluded
+    {
+        constexpr std::size_t kLargeRangeSize = 1000001;
+        RecordingRandom probe(54321u);
+        const std::size_t repeated_index = probe.uniform_int<std::size_t>(0, kLargeRangeSize - 1);
+        const auto& accepted_words = probe.recorded();
+        if (!require(!accepted_words.empty() && repeated_index < kLargeRangeSize,
+                     "Expected probe draw to record raw words for large range")) {
+            return false;
+        }
+
+        // Attempt 0 accepts repeated_index; subsequent attempts collide until max_attempts.
+        constexpr std::size_t kCount = 2;
+        constexpr std::size_t kMaxAttempts = kCount * 64;
+        RepeatingWordSequenceRandom colliding_rng(accepted_words, kMaxAttempts, 98765u);
+        const std::size_t sentinel = (repeated_index == 0) ? 1 : 0;
+        std::vector<std::size_t> excluded{sentinel};
+
+        bool threw_excessive = false;
+        try {
+            (void)colliding_rng.sample_exclusive_indices(kCount, 0, kLargeRangeSize, excluded);
+        }
+        catch (const std::runtime_error&) {
+            threw_excessive = true;
+        }
+        if (!require(threw_excessive &&
+                         excluded == std::vector<std::size_t>{sentinel},
+                     "Expected excessive rejections on large range to throw and leave excluded unchanged")) {
+            return false;
+        }
+    }
+
     // sample_exclusive_indices: validation errors throw std::invalid_argument
     {
         bool threw_inverted = false;
@@ -1052,6 +1084,30 @@ bool test_experiment_multi_run_and_optional_config()
         if (!require(init_replay == init_opt &&
                          stats_replay->best_fitness() == stats_opt->best_fitness(),
                      "Expected queried auto-generated Experiment master seed to reproduce all runs")) {
+            return false;
+        }
+    }
+
+    // 6c-2. Non-Random classname in Experiment "Random" config must fail fast in setup()
+    {
+        adef::PrototypeManager pm;
+        adef::register_type(pm);
+        pm.register_type("RecordingExperimentalStatistics",
+                         std::make_shared<RecordingExperimentalStatistics>());
+        pm.register_type("RecordingInitializer",
+                         std::make_shared<RecordingInitializer>());
+        auto cfg = load_json_config(
+            make_experiment_json(R"("Random": { "classname": "Sphere" },)"),
+            "test_rnd_exp_invalid_type.json");
+        bool threw_invalid_type = false;
+        try {
+            (void)adef::make_and_setup_type<adef::Experiment>(cfg, pm);
+        }
+        catch (const std::invalid_argument&) {
+            threw_invalid_type = true;
+        }
+        if (!require(threw_invalid_type,
+                     "Expected std::invalid_argument when Experiment Random classname does not derive from Random")) {
             return false;
         }
     }

@@ -47,6 +47,10 @@ void Experiment::setup(const Configuration& config, const PrototypeManager& pm)
     }
     else {
         random_ = make_and_setup_type<Random>(random_config, pm);
+        if (!random_) {
+            throw std::invalid_argument(
+                "Configured \"Random\" object must derive from Random.");
+        }
     }
 
     statistics_ = make_and_setup_type<ExperimentalStatistics>(

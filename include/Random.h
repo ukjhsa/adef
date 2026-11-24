@@ -185,9 +185,16 @@ same dynamic type for @p stream_index.
     template<typename IntType = std::size_t>
     IntType uniform_int(IntType min_val, IntType max_val)
     {
-        static_assert(std::is_integral<IntType>::value &&
-                          !std::is_same<IntType, bool>::value,
-                      "Random::uniform_int requires a non-bool integral type.");
+        static_assert(
+            std::is_same_v<IntType, short> ||
+                std::is_same_v<IntType, int> ||
+                std::is_same_v<IntType, long> ||
+                std::is_same_v<IntType, long long> ||
+                std::is_same_v<IntType, unsigned short> ||
+                std::is_same_v<IntType, unsigned int> ||
+                std::is_same_v<IntType, unsigned long> ||
+                std::is_same_v<IntType, unsigned long long>,
+            "Random::uniform_int requires a cv-unqualified standard integer type.");
         if (min_val > max_val) {
             throw std::invalid_argument(
                 "Invalid range for Random::uniform_int: min_val > max_val.");
