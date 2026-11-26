@@ -185,20 +185,25 @@ its configuration should be
 
     void update(std::shared_ptr<Repository> repos) override
     {
-        if (cm_) {
-            cm_->update(repos);
+        if (!cm_) {
+            return;
         }
+        cm_->update(repos);
 
         auto index = repos->parameters()->take_out<std::size_t>("target_index");
         auto leaf = cm_->generate(repos);
-        for (auto& update : updates_) {
-            if (update) {
-                update->update(repos, parameter_, leaf);
+        if (leaf) {
+            for (auto& update : updates_) {
+                if (update) {
+                    update->update(repos, parameter_, leaf);
+                }
             }
-        }
 
-        leaf->update();
-        parameter_->reset_already_generated(index);
+            leaf->update();
+        }
+        if (parameter_) {
+            parameter_->reset_already_generated(index);
+        }
     }
 
     void update_generation(std::shared_ptr<Repository> repos) override
@@ -213,8 +218,8 @@ its configuration should be
 
     void update_individual(std::shared_ptr<Repository> repos) override
     {
-        if (cm_) {
-            cm_->update_individual(repos);
+        if (!cm_) {
+            return;
         }
 
         auto index = repos->parameters()->take_out<std::size_t>("target_index");
@@ -223,14 +228,18 @@ its configuration should be
             return;
         }
 
-        auto leaf = cm_->generate(repos);
-        for (auto& update : updates_) {
-            if (update) {
-                update->update(repos, parameter_, leaf);
-            }
-        }
+        cm_->update_individual(repos);
 
-        leaf->update();
+        auto leaf = cm_->generate(repos);
+        if (leaf) {
+            for (auto& update : updates_) {
+                if (update) {
+                    update->update(repos, parameter_, leaf);
+                }
+            }
+
+            leaf->update();
+        }
         if (outer_has_individual && parameter_) {
             parameter_->reset_already_generated(index);
         }

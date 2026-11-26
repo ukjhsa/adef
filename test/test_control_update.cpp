@@ -917,6 +917,86 @@ bool test_read_only_population_scope_and_summary(const adef::PrototypeManager& p
         }
     }
 
+    // 8e. Lifetime safety: guard retains ownership for shared_ptr-managed Repository
+    //     (including move construction and direct shared_ptr ctor) and stays safe for
+    //     stack-allocated and null instances.
+    {
+        std::weak_ptr<adef::Repository> weak_ref;
+        {
+            auto repos = std::make_shared<TestRepository>();
+            repos->set_population(make_population_with_fitness({3.0, 9.0}, pm, "scope_life_enter"));
+            weak_ref = repos;
+
+            auto scope = repos->enter_read_only_population_scope();
+            (void)repos->population_fitness_summary();
+            repos.reset(); // drop caller's shared_ptr while scope is still alive
+
+            if (!require(!weak_ref.expired() && weak_ref.lock()->has_read_only_population_scope(),
+                         "Expected enter_read_only_population_scope() guard to keep shared_ptr-managed Repository alive")) {
+                return false;
+            }
+
+            auto moved_scope = std::move(scope);
+            if (!require(!weak_ref.expired() && weak_ref.lock()->has_read_only_population_scope(),
+                         "Expected moved ReadOnlyPopulationScope to retain Repository ownership and active scope")) {
+                return false;
+            }
+        }
+        if (!require(weak_ref.expired(),
+                     "Expected Repository to be released after moved ReadOnlyPopulationScope exits")) {
+            return false;
+        }
+    }
+    {
+        std::weak_ptr<adef::Repository> weak_ref;
+        {
+            std::shared_ptr<adef::Repository> repos = std::make_shared<TestRepository>();
+            weak_ref = repos;
+
+            adef::Repository::ReadOnlyPopulationScope scope(repos);
+            repos.reset(); // drop caller's shared_ptr while guard constructed from shared_ptr is alive
+
+            if (!require(!weak_ref.expired() && weak_ref.lock()->has_read_only_population_scope(),
+                         "Expected ReadOnlyPopulationScope(shared_ptr) to keep Repository alive after caller reset")) {
+                return false;
+            }
+        }
+        if (!require(weak_ref.expired(),
+                     "Expected Repository to be released after ReadOnlyPopulationScope(shared_ptr) exits")) {
+            return false;
+        }
+    }
+    {
+        // Stack-allocated (non-shared_ptr) Repository works cleanly without throwing std::bad_weak_ptr
+        TestRepository stack_repos;
+        stack_repos.set_population(make_population_with_fitness({2.0, 8.0}, pm, "scope_stack"));
+        {
+            auto scope = stack_repos.enter_read_only_population_scope();
+            const auto first = stack_repos.population_fitness_summary();
+            stack_repos.population()->at(0)->set_fitness_value(100.0);
+            const auto cached = stack_repos.population_fitness_summary();
+            if (!require(stack_repos.has_read_only_population_scope() &&
+                             approx_equal(first.average, 5.0) &&
+                             approx_equal(cached.average, 5.0),
+                         "Expected stack-allocated Repository scope to cache summary safely")) {
+                return false;
+            }
+        }
+        const auto after = stack_repos.population_fitness_summary();
+        if (!require(!stack_repos.has_read_only_population_scope() &&
+                         approx_equal(after.average, 54.0),
+                     "Expected stack-allocated Repository scope to exit and clear summary cleanly")) {
+            return false;
+        }
+
+        // Null pointer and null shared_ptr guards are safe no-ops
+        adef::Repository::ReadOnlyPopulationScope null_raw(static_cast<adef::Repository*>(nullptr));
+        adef::Repository::ReadOnlyPopulationScope null_shared(std::shared_ptr<adef::Repository>{});
+        auto moved_null = std::move(null_shared);
+        (void)null_raw;
+        (void)moved_null;
+    }
+
     return true;
 }
 

@@ -3,6 +3,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include "Repository.h"
 #include "Configuration.h"
 #include "PrototypeManager.h"
@@ -24,6 +25,7 @@
 namespace adef {
 
 Repository::ReadOnlyPopulationScope::ReadOnlyPopulationScope(Repository* repos) noexcept :
+    owner_(repos != nullptr ? repos->weak_from_this().lock() : nullptr),
     repos_(repos)
 {
     if (repos_ != nullptr) {
@@ -33,12 +35,17 @@ Repository::ReadOnlyPopulationScope::ReadOnlyPopulationScope(Repository* repos) 
 
 Repository::ReadOnlyPopulationScope::ReadOnlyPopulationScope(
     const std::shared_ptr<Repository>& repos) noexcept :
-    ReadOnlyPopulationScope(repos.get())
+    owner_(repos),
+    repos_(repos.get())
 {
+    if (repos_ != nullptr) {
+        ++repos_->read_only_population_scope_depth_;
+    }
 }
 
 Repository::ReadOnlyPopulationScope::ReadOnlyPopulationScope(
     ReadOnlyPopulationScope&& other) noexcept :
+    owner_(std::move(other.owner_)),
     repos_(other.repos_)
 {
     other.repos_ = nullptr;

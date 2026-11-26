@@ -117,6 +117,7 @@ the outermost scope exits.
         ReadOnlyPopulationScope& operator=(ReadOnlyPopulationScope&& other) = delete;
 
     private:
+        std::shared_ptr<Repository> owner_;
         Repository* repos_;
     };
 

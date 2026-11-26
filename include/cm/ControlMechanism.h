@@ -192,6 +192,12 @@ its configuration should be
     }
 /**
 @brief Update the internal states by the current state.
+
+@note Subclasses of ControlMechanism that customize update behavior should
+override resolve_update_target() or both update_generation() and
+update_individual(), because ControlMechanism's two-tier lifecycle methods do
+not dispatch through update(). Direct subclasses of BaseControlMechanism
+automatically fall back to update() via BaseControlMechanism::update_individual().
 */
     virtual void update(std::shared_ptr<Repository> repos) override
     {

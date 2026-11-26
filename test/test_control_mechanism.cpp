@@ -2421,6 +2421,78 @@ private:
     }
 };
 
+class SequenceControlFunction : public adef::RealControlFunction
+{
+public:
+    SequenceControlFunction(std::vector<std::shared_ptr<adef::RealFunction>> leaves,
+                            std::shared_ptr<std::vector<std::string>> log,
+                            std::shared_ptr<std::vector<std::shared_ptr<adef::RealFunction>>> recorded_leaves = nullptr) :
+        leaves_(std::move(leaves)),
+        cursor_(0),
+        log_(std::move(log)),
+        recorded_leaves_(std::move(recorded_leaves))
+    {
+    }
+
+    void setup(const adef::Configuration&, const adef::PrototypeManager&) override
+    {
+    }
+
+    std::shared_ptr<adef::RealFunction> generate() override
+    {
+        if (log_) {
+            log_->push_back("inner_ctrl_fn_generate");
+        }
+        auto leaf = leaves_.at(cursor_ % leaves_.size());
+        ++cursor_;
+        return leaf;
+    }
+
+    bool record(const std::vector<std::any>& params,
+                const std::string& name = "") override
+    {
+        if (log_) {
+            log_->push_back("inner_ctrl_fn_record:" + name);
+        }
+        if (recorded_leaves_ && !params.empty()) {
+            recorded_leaves_->push_back(
+                std::any_cast<std::shared_ptr<adef::RealFunction>>(params.front()));
+        }
+        return true;
+    }
+
+    bool record(const std::vector<std::any>& params,
+                std::shared_ptr<const adef::Individual>,
+                std::shared_ptr<const adef::Individual>,
+                const std::string& name = "") override
+    {
+        return record(params, name);
+    }
+
+    void update() override
+    {
+        if (log_) {
+            log_->push_back("inner_ctrl_fn_update");
+        }
+    }
+
+    unsigned int number_of_parameters() const override
+    {
+        return 1;
+    }
+
+private:
+    std::vector<std::shared_ptr<adef::RealFunction>> leaves_;
+    std::size_t cursor_;
+    std::shared_ptr<std::vector<std::string>> log_;
+    std::shared_ptr<std::vector<std::shared_ptr<adef::RealFunction>>> recorded_leaves_;
+
+    std::shared_ptr<adef::Prototype> clone_impl() const override
+    {
+        return std::make_shared<SequenceControlFunction>(*this);
+    }
+};
+
 bool test_two_tier_update_and_batch_interfaces()
 {
     constexpr std::size_t kN = 4;
@@ -2585,6 +2657,139 @@ bool test_two_tier_update_and_batch_interfaces()
         }
         if (!require(obs->total_update_calls == 1 && obs->total_generate_calls == static_cast<int>(kN),
                      "Two-tier Single+Multiple: expected 1 Function::update() and N generate() calls")) {
+            return false;
+        }
+    }
+
+    //     3) MultipleFn + SingleParam: N distinct Function::update() calls in update_generation(),
+    //        1 shared generate() per generation
+    {
+        adef::PrototypeManager pm;
+        adef::register_type(pm);
+        auto obs = std::make_shared<FunctionObserver>();
+        pm.register_type("SeqFn", std::make_shared<SequenceRealFunction>(
+            std::vector<double>{0.2, 0.4, 0.6, 0.8}, obs));
+        auto cfg = load_json_config(R"({
+            "classname": "RealControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealSingleControlParameter" },
+            "ControlFunction": {
+                "classname": "MultipleControlFunction",
+                "number_of_functions": 4,
+                "Function": { "classname": "SeqFn" }
+            },
+            "ControlSelection": { "classname": "NonInfoControlSelection" },
+            "ControlUpdate": []
+        })", "test_cm_tt_ms.json");
+        auto cm = adef::make_and_setup_type<adef::RealControlMechanism>(cfg, pm);
+        auto repos = std::make_shared<TestRepository>();
+        cm->init(repos);
+
+        cm->update_generation(repos);
+        std::set<int> gen1_updated_ids(obs->update_instance_ids.begin(), obs->update_instance_ids.end());
+        if (!require(obs->total_update_calls == static_cast<int>(kN) && gen1_updated_ids.size() == kN,
+                     "Two-tier Multiple+Single: expected update_generation() to update all N distinct functions")) {
+            return false;
+        }
+        for (std::size_t i = 0; i < kN; ++i) {
+            repos->parameters()->store("target_index", i);
+            cm->update_individual(repos);
+            if (!require(approx_equal(cm->generate(repos), 0.2),
+                         "Two-tier Multiple+Single: expected shared generation-level draw 0.2")) {
+                return false;
+            }
+        }
+        if (!require(obs->total_update_calls == static_cast<int>(kN) && obs->total_generate_calls == 1,
+                     "Two-tier Multiple+Single: expected no extra update() and 1 shared generate() in gen 1")) {
+            return false;
+        }
+
+        // Next generation updates all N functions again and draws fresh shared value 0.4
+        cm->update_generation(repos);
+        repos->parameters()->store("target_index", std::size_t{0});
+        cm->update_individual(repos);
+        if (!require(approx_equal(cm->generate(repos), 0.4) &&
+                         obs->total_update_calls == static_cast<int>(2 * kN) &&
+                         obs->total_generate_calls == 2,
+                     "Two-tier Multiple+Single: expected generation 2 to update all N functions and draw 0.4")) {
+            return false;
+        }
+    }
+
+    //     4) MultipleFn + MultipleParam (with Generation-scoped ControlUpdate):
+    //        update_generation() iterates all N distinct functions once (applying Generation CU and Function::update()),
+    //        and each individual generates independently without extra update() calls.
+    {
+        adef::PrototypeManager pm;
+        adef::register_type(pm);
+        auto obs = std::make_shared<FunctionObserver>();
+        auto cu_targets = std::make_shared<std::vector<std::shared_ptr<adef::BaseFunction>>>();
+        pm.register_type("SeqFn", std::make_shared<SequenceRealFunction>(
+            std::vector<double>{0.15, 0.35, 0.55, 0.75}, obs));
+        pm.register_type("GenSpyCU", std::make_shared<LoggingControlUpdate>(
+            "gen_cu", nullptr, cu_targets, false, adef::UpdateScope::Generation));
+        auto cfg = load_json_config(R"({
+            "classname": "RealControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealMultipleControlParameter", "number_of_objects": 4 },
+            "ControlFunction": {
+                "classname": "MultipleControlFunction",
+                "number_of_functions": 4,
+                "Function": { "classname": "SeqFn" }
+            },
+            "ControlSelection": { "classname": "NonInfoControlSelection" },
+            "ControlUpdate": [ { "classname": "GenSpyCU" } ]
+        })", "test_cm_tt_mm.json");
+        auto cm = adef::make_and_setup_type<adef::RealControlMechanism>(cfg, pm);
+        auto repos = std::make_shared<TestRepository>();
+        cm->init(repos);
+
+        cm->update_generation(repos);
+        std::set<int> gen1_updated_ids(obs->update_instance_ids.begin(), obs->update_instance_ids.end());
+        std::set<adef::BaseFunction*> gen1_cu_ptrs;
+        for (const auto& t : *cu_targets) {
+            gen1_cu_ptrs.insert(t.get());
+        }
+        if (!require(obs->total_update_calls == static_cast<int>(kN) &&
+                         gen1_updated_ids.size() == kN &&
+                         cu_targets->size() == kN &&
+                         gen1_cu_ptrs.size() == kN,
+                     "Two-tier Multiple+Multiple: expected update_generation() to apply Generation CU and update() across all N distinct functions")) {
+            return false;
+        }
+        for (std::size_t i = 0; i < kN; ++i) {
+            repos->parameters()->store("target_index", i);
+            cm->update_individual(repos);
+            if (!require(approx_equal(cm->generate(repos), 0.15),
+                         "Two-tier Multiple+Multiple: expected independent gen 1 draw 0.15 at index " +
+                             std::to_string(i))) {
+                return false;
+            }
+        }
+        std::set<int> gen1_generated_ids(obs->generate_instance_ids.begin(), obs->generate_instance_ids.end());
+        if (!require(obs->total_update_calls == static_cast<int>(kN) &&
+                         obs->total_generate_calls == static_cast<int>(kN) &&
+                         gen1_generated_ids.size() == kN &&
+                         cu_targets->size() == kN,
+                     "Two-tier Multiple+Multiple: expected N distinct generate() calls and no per-individual updates in gen 1")) {
+            return false;
+        }
+
+        // Generation 2 resets all N parameter flags and advances each function independently to 0.35
+        cm->update_generation(repos);
+        for (std::size_t i = 0; i < kN; ++i) {
+            repos->parameters()->store("target_index", i);
+            cm->update_individual(repos);
+            if (!require(approx_equal(cm->generate(repos), 0.35),
+                         "Two-tier Multiple+Multiple: expected independent gen 2 draw 0.35 at index " +
+                             std::to_string(i))) {
+                return false;
+            }
+        }
+        if (!require(obs->total_update_calls == static_cast<int>(2 * kN) &&
+                         obs->total_generate_calls == static_cast<int>(2 * kN) &&
+                         cu_targets->size() == 2 * kN,
+                     "Two-tier Multiple+Multiple: expected gen 2 totals to match 2*N")) {
             return false;
         }
     }
@@ -2942,6 +3147,192 @@ bool test_two_tier_update_and_batch_interfaces()
                          stats->recorded(adef::Statistics::Item::cr).at(0).empty(),
                      "Empty population: expected DEReproduction/DEMutation/DECrossover not to throw and record empty vectors")) {
             return false;
+        }
+    }
+
+    // 4g. IndirectControlMechanism::update_individual() with outer SingleControlParameter
+    //     (no individual outer updates) + inner SingleControlParameter with individual-scoped ControlUpdate:
+    //     on target_index >= 1, outer MUST early-return BEFORE cm_->update_individual(repos) so the inner
+    //     cache is NOT cleared and DEEnvironmentalSelection::select() does NOT trigger a late draw / misattribution.
+    {
+        adef::PrototypeManager pm;
+        adef::register_type(pm);
+
+        auto log = std::make_shared<std::vector<std::string>>();
+        auto outer_cs_targets = std::make_shared<std::vector<std::shared_ptr<adef::BaseFunction>>>();
+        auto inner_recorded_leaves = std::make_shared<std::vector<std::shared_ptr<adef::RealFunction>>>();
+        auto leaf_a = std::make_shared<LoggingRealFunction>("leaf_a", 0.25, log);
+        auto leaf_b = std::make_shared<LoggingRealFunction>("leaf_b", 0.75, log);
+
+        pm.register_type("SeqInnerCtrlFn", std::make_shared<SequenceControlFunction>(
+            std::vector<std::shared_ptr<adef::RealFunction>>{leaf_a, leaf_b},
+            log,
+            inner_recorded_leaves));
+        pm.register_type("InnerIndCU", std::make_shared<LoggingControlUpdate>(
+            "inner_ind_cu", log, nullptr, false, adef::UpdateScope::Individual));
+        pm.register_type("OuterCS", std::make_shared<LoggingControlSelection>(
+            "outer_select", log, outer_cs_targets));
+
+        auto cfg = load_json_config(R"({
+            "classname": "RealIndirectControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealSingleControlParameter" },
+            "ControlSelection": { "classname": "OuterCS" },
+            "ControlUpdate": [],
+            "ControlMechanism": {
+                "classname": "RealControlControlMechanism",
+                "ControlRange": { "classname": "RealControlControlRange" },
+                "ControlParameter": { "classname": "RealControlSingleControlParameter" },
+                "ControlFunction": {
+                    "classname": "SingleControlFunction",
+                    "Function": { "classname": "SeqInnerCtrlFn" }
+                },
+                "ControlSelection": { "classname": "RealControlBetterOffspringControlSelection" },
+                "ControlUpdate": [ { "classname": "InnerIndCU" } ]
+            }
+        })", "test_cm_indirect_outer_single_inner_ind.json");
+
+        auto cm = adef::make_and_setup_type<adef::RealIndirectControlMechanism>(cfg, pm);
+        auto repos = std::make_shared<TestRepository>();
+        repos->set_population(make_population_with_fitness({10.0, 10.0, 10.0, 10.0}, pm, "ind_os_p"));
+        repos->set_offspring(make_population_with_fitness({2.0, 2.0, 2.0, 2.0}, pm, "ind_os_o"));
+        cm->init(repos);
+
+        auto count_event = [&](const std::string& name) {
+            std::size_t n = 0;
+            for (const auto& entry : *log) {
+                if (entry == name) {
+                    ++n;
+                }
+            }
+            return n;
+        };
+
+        // Generation 1: draw leaf_a (0.25) once, reuse for all 4 individuals, and attribute all 4 select() calls to leaf_a
+        cm->update_generation(repos);
+        for (std::size_t idx = 0; idx < kN; ++idx) {
+            repos->parameters()->store("target_index", idx);
+            cm->update_individual(repos);
+            const double val = cm->generate(repos);
+            if (!require(approx_equal(val, 0.25),
+                         "Indirect outer-Single + inner-Individual: expected shared value 0.25 in gen 1")) {
+                return false;
+            }
+        }
+        if (!require(count_event("inner_ind_cu") == 1 &&
+                         count_event("inner_ctrl_fn_update") == 1 &&
+                         count_event("inner_ctrl_fn_generate") == 1,
+                     "Indirect outer-Single + inner-Individual: expected inner update/generate strictly once in gen 1")) {
+            return false;
+        }
+
+        for (std::size_t idx = 0; idx < kN; ++idx) {
+            repos->parameters()->store("target_index", idx);
+            cm->select(repos);
+        }
+        if (!require(count_event("inner_ctrl_fn_generate") == 1,
+                     "Indirect outer-Single + inner-Individual: select() must NOT trigger a late inner draw in gen 1")) {
+            return false;
+        }
+        if (!require(outer_cs_targets->size() == kN && inner_recorded_leaves->size() == kN,
+                     "Indirect outer-Single + inner-Individual: expected select() feedback for all N individuals")) {
+            return false;
+        }
+        for (std::size_t idx = 0; idx < kN; ++idx) {
+            if (!require((*outer_cs_targets)[idx] == leaf_a && (*inner_recorded_leaves)[idx] == leaf_a,
+                         "Indirect outer-Single + inner-Individual: expected select() attribution to leaf_a in gen 1")) {
+                return false;
+            }
+        }
+
+        // Generation 2: fresh outer reset draws leaf_b (0.75) once and attributes all 4 select() calls to leaf_b
+        outer_cs_targets->clear();
+        inner_recorded_leaves->clear();
+        cm->update_generation(repos);
+        for (std::size_t idx = 0; idx < kN; ++idx) {
+            repos->parameters()->store("target_index", idx);
+            cm->update_individual(repos);
+            const double val = cm->generate(repos);
+            if (!require(approx_equal(val, 0.75),
+                         "Indirect outer-Single + inner-Individual: expected shared value 0.75 in gen 2")) {
+                return false;
+            }
+        }
+        for (std::size_t idx = 0; idx < kN; ++idx) {
+            repos->parameters()->store("target_index", idx);
+            cm->select(repos);
+        }
+        if (!require(count_event("inner_ind_cu") == 2 &&
+                         count_event("inner_ctrl_fn_generate") == 2 &&
+                         outer_cs_targets->size() == kN &&
+                         inner_recorded_leaves->size() == kN,
+                     "Indirect outer-Single + inner-Individual: expected strictly one draw/update and no late draw in gen 2")) {
+            return false;
+        }
+        for (std::size_t idx = 0; idx < kN; ++idx) {
+            if (!require((*outer_cs_targets)[idx] == leaf_b && (*inner_recorded_leaves)[idx] == leaf_b,
+                         "Indirect outer-Single + inner-Individual: expected select() attribution to leaf_b in gen 2")) {
+                return false;
+            }
+        }
+    }
+
+    // 4h. IndirectControlMechanism null guards: null cm_ and null leaf in update() / update_generation() / update_individual()
+    {
+        // Null cm_ (and null parameter_): must return cleanly even without "target_index"
+        adef::RealIndirectControlMechanism empty_cm;
+        auto repos = std::make_shared<TestRepository>();
+        empty_cm.update(repos);
+        empty_cm.update_generation(repos);
+        empty_cm.update_individual(repos);
+    }
+    {
+        // Non-null cm_ returning a null leaf with active ControlUpdates: must skip updates_ and leaf->update() safely
+        adef::PrototypeManager pm;
+        adef::register_type(pm);
+        auto log = std::make_shared<std::vector<std::string>>();
+        pm.register_type("NullLeafCtrlFn", std::make_shared<SequenceControlFunction>(
+            std::vector<std::shared_ptr<adef::RealFunction>>{nullptr}, log));
+        pm.register_type("OuterSpyCU", std::make_shared<LoggingControlUpdate>(
+            "outer_cu", log, nullptr, false, adef::UpdateScope::Individual));
+
+        auto cfg = load_json_config(R"({
+            "classname": "RealIndirectControlMechanism",
+            "ControlRange": { "classname": "RealControlRange", "lower_bound": 0.0, "upper_bound": 1.0 },
+            "ControlParameter": { "classname": "RealSingleControlParameter" },
+            "ControlSelection": { "classname": "NonInfoControlSelection" },
+            "ControlUpdate": [
+                { "classname": "AverageFitnessControlUpdate" },
+                { "classname": "OuterSpyCU" }
+            ],
+            "ControlMechanism": {
+                "classname": "RealControlControlMechanism",
+                "ControlRange": { "classname": "RealControlControlRange" },
+                "ControlParameter": { "classname": "RealControlSingleControlParameter" },
+                "ControlFunction": {
+                    "classname": "SingleControlFunction",
+                    "Function": { "classname": "NullLeafCtrlFn" }
+                },
+                "ControlSelection": { "classname": "NonInfoControlSelection" },
+                "ControlUpdate": []
+            }
+        })", "test_cm_indirect_null_leaf.json");
+
+        auto cm = adef::make_and_setup_type<adef::RealIndirectControlMechanism>(cfg, pm);
+        auto repos = std::make_shared<TestRepository>();
+        repos->set_population(make_population_with_fitness({1.0, 2.0}, pm, "null_leaf_pop"));
+        repos->parameters()->store("target_index", std::size_t{0});
+        cm->init(repos);
+
+        cm->update(repos);
+        cm->update_generation(repos);
+        cm->update_individual(repos);
+
+        for (const auto& entry : *log) {
+            if (!require(entry != "outer_cu",
+                         "IndirectControlMechanism must skip outer ControlUpdate calls when generated leaf is null")) {
+                return false;
+            }
         }
     }
 
