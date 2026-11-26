@@ -98,6 +98,8 @@ struct RunSnapshot {
     adef::Statistics::GenerationList<adef::Statistics::AllIndividualsValueList> cr_history;
     std::vector<double> final_fitness;
     std::vector<double> best_fitness;
+    unsigned int fes = 0;
+    double exp_fes = 0.0;
 };
 
 class CapturingExperimentalStatistics : public adef::ExperimentalStatistics
@@ -120,6 +122,8 @@ public:
             snap.cr_history = stats->recorded(adef::Statistics::Item::cr);
         }
         snap.best_fitness = stats->best_fitness();
+        snap.fes = stats->number_of_fitness_evaluations();
+        snap.exp_fes = fes().back();
 
         auto pop = repos->population();
         snap.final_fitness.reserve(pop->population_size());
@@ -290,11 +294,25 @@ bool verify_algorithm_case(const AlgorithmCase& alg)
             }
         }
 
+        // Exact FEs accounting: P * (G + 1) for initial population + kMaxGen generations
+        const unsigned int expected_fes = static_cast<unsigned int>(kPopSize * (kMaxGen + 1));
+        if (!require(ra.fes == expected_fes &&
+                         rb.fes == expected_fes &&
+                         ra.exp_fes == static_cast<double>(expected_fes) &&
+                         rb.exp_fes == static_cast<double>(expected_fes),
+                     alg.name + ": expected exact FEs=" + std::to_string(expected_fes) +
+                         ", got run_a=" + std::to_string(ra.fes) +
+                         " (exp=" + std::to_string(ra.exp_fes) + "), run_b=" +
+                         std::to_string(rb.fes) + " on run " + std::to_string(run_idx))) {
+            return false;
+        }
+
         // Same-seed reproducibility
         if (!require(ra.f_history == rb.f_history &&
                          ra.cr_history == rb.cr_history &&
                          ra.final_fitness == rb.final_fitness &&
-                         ra.best_fitness == rb.best_fitness,
+                         ra.best_fitness == rb.best_fitness &&
+                         ra.fes == rb.fes,
                      alg.name + ": same-seed reproducibility failed on run " +
                          std::to_string(run_idx))) {
             return false;

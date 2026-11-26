@@ -20,7 +20,8 @@ namespace adef {
 
 Statistics::Statistics() :
     success_error_(0.00001),
-    best_fitness_so_far_(std::numeric_limits<double>::max())
+    best_fitness_so_far_(std::numeric_limits<double>::max()),
+    number_of_fitness_evaluations_(0)
 {
     map_item_to_name_[Item::parents] = "parents";
     map_item_to_name_[Item::offspring] = "offspring";
@@ -30,20 +31,32 @@ Statistics::Statistics() :
 
 void Statistics::setup(const Configuration& config, const PrototypeManager& pm)
 {
+    (void)pm;
     auto success_error_config = config.get_config("success_error");
     success_error_ = success_error_config.is_null() ?
                         0.00001 : success_error_config.get_double_value();
 
+    names_of_items_.clear();
     auto item_config = config.get_config("item");
     auto item_config_size = item_config.get_array_size();
     for (decltype(item_config_size) idx = 0; idx < item_config_size; ++idx) {
         auto name = item_config.get_string_value(idx);
         names_of_items_.push_back(name);
     }
+
+    statistics_all_individuals_.clear();
+    best_fitness_.clear();
+    best_fitness_so_far_ = std::numeric_limits<double>::max();
+    number_of_fitness_evaluations_ = 0;
 }
 
 void Statistics::init(std::shared_ptr<Repository> repos)
 {
+    (void)repos;
+    statistics_all_individuals_.clear();
+    best_fitness_.clear();
+    best_fitness_so_far_ = std::numeric_limits<double>::max();
+    number_of_fitness_evaluations_ = 0;
 }
 
 bool Statistics::is_evolve_success(std::shared_ptr<const Repository> repos) const

@@ -144,4 +144,14 @@ if(BUILD_TESTING)
              COMMAND test_control_selection
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_control_selection>)
     set_tests_properties(test_control_selection PROPERTIES TIMEOUT 120)
+
+    add_executable(test_statistics test/test_statistics.cpp)
+    target_link_libraries(test_statistics PRIVATE adef::adef)
+    set_target_properties(test_statistics PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_statistics
+             COMMAND test_statistics
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_statistics>)
+    set_tests_properties(test_statistics PROPERTIES TIMEOUT 120)
 endif()
