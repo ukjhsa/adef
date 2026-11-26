@@ -257,7 +257,7 @@ its configuration should be
 
         result->scores_.push_back(scoring_function_->calculate_score(parent, offspring));
 
-        if (result->scores_.size() >= score_size_) {
+        if (result->scores_.size() > score_size_) {
             result->scores_.pop_front();
         }
         return true;

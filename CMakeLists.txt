@@ -132,4 +132,16 @@ if(BUILD_TESTING)
     add_test(NAME test_roulette_wheel_selection
              COMMAND test_roulette_wheel_selection
              WORKING_DIRECTORY $<TARGET_FILE_DIR:test_roulette_wheel_selection>)
+
+    add_executable(test_control_selection test/test_control_selection.cpp)
+    target_link_libraries(test_control_selection PRIVATE adef::adef)
+    target_compile_definitions(test_control_selection PRIVATE
+                               ADEF_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    set_target_properties(test_control_selection PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+                          CXX_EXTENSIONS OFF)
+    add_test(NAME test_control_selection
+             COMMAND test_control_selection
+             WORKING_DIRECTORY $<TARGET_FILE_DIR:test_control_selection>)
+    set_tests_properties(test_control_selection PROPERTIES TIMEOUT 120)
 endif()

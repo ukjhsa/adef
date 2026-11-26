@@ -475,6 +475,8 @@ It has many way to use the relation between parent and offspring:
     - use `NonInfoControlSelection`
 - check whether offspring is better than parent
     - use `BetterOffspringControlSelection`
+- record every parent/offspring outcome (both improved and non-improved) so scoring functions such as `SuccessScoringFunction` receive both successes and failures
+    - use `AllOffspringControlSelection`
 
 See `Function` for the details to adjust the object.
 

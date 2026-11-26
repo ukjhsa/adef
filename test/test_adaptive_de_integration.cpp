@@ -656,7 +656,7 @@ std::vector<AlgorithmCase> make_algorithm_cases()
                                 {
                                     "classname": "RealNormalDisFunction",
                                     "mean": { "classname": "RealConstantFunction", "object": 0.5 },
-                                    "stddev": { "classname": "RealConstantFunction", "object": 0.5 }
+                                    "stddev": { "classname": "RealConstantFunction", "object": 0.3 }
                                 },
                                 {
                                     "classname": "RealCauchyDisFunction",
@@ -667,7 +667,7 @@ std::vector<AlgorithmCase> make_algorithm_cases()
                         }
                     }
                 },
-                "ControlSelection": { "classname": "RealControlBetterOffspringControlSelection" },
+                "ControlSelection": { "classname": "RealControlAllOffspringControlSelection" },
                 "ControlUpdate": [
                     { "classname": "GenerationControlUpdate" }
                 ]
