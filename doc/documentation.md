@@ -188,6 +188,11 @@ The statistics
 - FEs, error, and best fitness on each experiment. See `ExperimentalStatistics`.
 - fitness so far, and items on each run. See `Statistics`.
 
+Read-only population fitness summary scope
+- `enter_read_only_population_scope()` returns a re-entrant RAII guard (`Repository::ReadOnlyPopulationScope`) bounding a phase during which `population()` is invariant (for example, `DEReproduction::reproduce()`, `DEMutation::mutate()`, and `DECrossover::crossover()`, excluding `repair()`).
+- `has_read_only_population_scope()` reports whether a read-only scope is currently active.
+- `population_fitness_summary()` returns a single-pass `PopulationFitnessSummary` (`count`, `min`, `max`, `average`). Inside an active scope, it is computed lazily on first request and reused across all `ControlUpdate`s and `ControlMechanism`s until the outermost scope exits (including on exceptions); outside a scope, it computes directly on demand without caching. `Repository::clone()` resets both the scope depth and cached summary, and `Repository::init()` clears any cached summary.
+
 ##### Design issue
 What is the difference between `System` and `Experiment`?
 - The system can have one or many experiments and output statistics of all experiments.
@@ -196,7 +201,7 @@ What is the difference between `Experiment` and `Repository`?
 - `Experiment` has informations that includes the number of runs and what algorithm, stored in `Repository`, to be used.
 
 Why there need `Repository` to contain informations of the algorithm?
-- Because the parameters of function is variable in different evolutionary process, ADEF encapsulates them into the single parameter `Repository` so that we can extract superclass/interface to use. Therefore operations of `Repository` are just getters.
+- Because the parameters of function is variable in different evolutionary process, ADEF encapsulates them into the single parameter `Repository` so that we can extract superclass/interface to use. Operations of `Repository` are primarily getters, supplemented by the scoped read-only population fitness summary to share population-level statistics safely during reproduction without mutating `Population` or caching across phases.
 
 ## EvolutionaryState
 http://ukjhsa.github.io/adef/classadef_1_1_evolutionary_state.html
@@ -275,7 +280,7 @@ Therefore there are classes to support each subject
 - `ControlRange` manages the range.
 - `ControlParameter` manages objects, and `ControlFunction` manages `Function`.
 - `ControlSelection` use the relation between parent and offspring and `ControlUpdate` use the feature of current population.
-- The call of `ControlMechanism::generate(...)`, `ControlMechanism::select(...)`, and `ControlMechanism::update(...)`.
+- The call of `ControlMechanism::generate(...)`, `ControlMechanism::select(...)`, and the two-tier update methods `ControlMechanism::update_generation(...)` / `ControlMechanism::update_individual(...)` (with `ControlMechanism::update(...)` retained for standalone backward compatibility).
 - `Function` specifies the formula.
 
 See following subsection for the details to adjust the object.
@@ -291,23 +296,31 @@ See following subsection for the details to adjust the object.
 ##### Usage
 See the API documentation of this class and each subclasses for the **Requirement**.
 
-If there is a parameter which is declared by `ControlMechanism`, the suggested usage are:
+If there is a parameter which is declared by `ControlMechanism`, the suggested usage in a reproduction loop is:
 
-1. call `update(...)` firstly.
-2. call `generate(...)` when you want to get the new parameter.
+1. Enter a read-only population scope via `repos->enter_read_only_population_scope()` while `repos->population()` is invariant.
+2. Call `update_generation(repos)` once before the per-individual loop (when `pop_size > 0`).
+3. Inside the per-individual loop (after storing `"target_index"`), call `update_individual(repos)` first, then call `generate(repos)` to get the new parameter.
 
 And call `select(...)` after `Reproduction` or inside `EnvironmentalSelection`.
 
 ```cpp
 void DECrossover::crossover(std::shared_ptr<Repository> repos) const
 {
+    auto scope = repos->enter_read_only_population_scope();
     // cr is ControlMechanism<double> type
     auto cr = std::dynamic_pointer_cast<ControlMechanism<double>>(cr_);
 
+    if (pop_size > 0) {
+        // generation-level updates once before the loop
+        cr->update_generation(repos);
+    }
     for each individual in population {
 
-        // update firstly
-        cr->update(repos);
+        repos->parameters()->store("target_index", idx);
+
+        // individual-level update (no-op if no individual-scoped ControlUpdate exists)
+        cr->update_individual(repos);
         // then generate the new CR value
         auto crossover_rate = cr->generate(repos);
 
@@ -318,6 +331,10 @@ void DECrossover::crossover(std::shared_ptr<Repository> repos) const
     }
 }
 ```
+
+Standalone callers may still invoke `update(repos)` directly for backward compatibility. For custom subclasses:
+- Direct subclasses of `BaseControlMechanism` that only override `update(...)` remain backward-compatible because `BaseControlMechanism::update_individual(...)` defaults to forwarding to `update(...)`.
+- Subclasses of `ControlMechanism<T>` that customize update behavior should override `resolve_update_target(...)` (as `SadeCrControlMechanism` does) or override both `update_generation(...)` and `update_individual(...)`, because `ControlMechanism<T>`'s two-tier methods do not dispatch through `update(...)`.
 
 The parameter *F* and *CR* in DE:
 - The parameter *F* is the member data of `DEMutation` and *CR* is the member data of `DECrossover`.
@@ -350,12 +367,12 @@ By issues above, why parameters *F* and *CR* are the member data of `DEMutation`
 - This issue has no absolute solution. ADEF takes the reason they just come from mutation and crossover.
 
 What is the difference between `ControlMechanism` and its subclasses?
-- `SadeCrControlMechanism`: the function to record inside function "mean".
+- `SadeCrControlMechanism`: routes `ControlUpdate`s to the sub-function `"mean"` via `resolve_update_target(...)` (and records into `"mean"` during `select(...)`).
 - `SdeFControlMechanism`: if the new object is invalid, then truncate the constant part.
 - `IndirectControlMechanism`:
     - it has a data member declared by `ControlMechanism`.
     - it has no own `ControlFunction`, the function is obtained from the data member instead.
-    - `select(...)` and `update(...)` call the corresponding interface of the data member.
+    - `select(...)`, `update(...)`, `update_generation(...)`, and `update_individual(...)` coordinate with the inner `ControlMechanism`, updating the inner mechanism before selecting and updating the current-generation leaf function.
 
 ### ControlRange
 http://ukjhsa.github.io/adef/classadef_1_1_control_range.html
@@ -418,7 +435,8 @@ Operations
 
 The following operations manages the flag of already generated:
 - `is_already_generated(index)` to return the flag.
-- `reset_already_generated(index)` to reset the flag.
+- `reset_already_generated(index)` to reset the flag for a single index.
+- `reset_all_already_generated()` to reset the flags for all managed objects (used by `ControlMechanism::update_generation(...)` when no individual-scoped `ControlUpdate` exists).
 
 The parameter `index` is ignored by `SingleControlParameter` because it has only one object.
 
@@ -488,19 +506,15 @@ http://ukjhsa.github.io/adef/classadef_1_1_control_update.html
 ##### Description
 `ControlUpdate` use the feature of current population to adjust the object.
 
-It has many way to use the feature of current population:
-- the average fitness
-    - use `AverageFitnessControlUpdate`
-- the fitness of current individual
-    - use `CurrentFitnessControlUpdate`
-- the maximum fitness
-    - use `MaxFitnessControlUpdate`
-- the minimum fitness
-    - use `MinFitnessControlUpdate`
-- the current number of generation
-    - use `CurrentFitnessControlUpdate`
-- the procedure of F value in the SDE algorithm
-    - use `SdeFControlUpdate`
+It has many way to use the feature of current population, categorized by `UpdateScope`:
+- Generation-scoped (`UpdateScope::Generation`, invariant across individuals within a generation):
+    - the average fitness: `AverageFitnessControlUpdate` (reads `Repository::population_fitness_summary()`)
+    - the maximum fitness: `MaxFitnessControlUpdate` (reads `Repository::population_fitness_summary()`)
+    - the minimum fitness: `MinFitnessControlUpdate` (reads `Repository::population_fitness_summary()`)
+    - the current number of generation: `GenerationControlUpdate`
+- Individual-scoped (`UpdateScope::Individual`, varies per individual or has per-individual side effects / RNG draws; also the safe default for custom `ControlUpdate` subclasses):
+    - the fitness of current individual: `CurrentFitnessControlUpdate`
+    - the procedure of F value in the SDE algorithm: `SdeFControlUpdate`
 
 See `Function` for the details to adjust the object.
 
@@ -510,24 +524,49 @@ See `Function` for the details to adjust the object.
 ##### Usage
 See the API documentation of each subclasses for the **Requirement**.
 
-`update(repos, base_parameter, base_function)` to use the feature of current population.
+- `update_scope()` declares whether this `ControlUpdate` is `UpdateScope::Generation` or `UpdateScope::Individual` (defaults to `UpdateScope::Individual`).
+- `update(repos, base_parameter, base_function)` applies the update to the target function while remaining stateless and `const`.
 
-It is used in `ControlMechanism::update(...)`
+They are used in `ControlMechanism::update_generation(...)` and `ControlMechanism::update_individual(...)` (and together in standalone `ControlMechanism::update(...)`):
 
 ```cpp
-void update(std::shared_ptr<Repository> repos)
+void update_generation(std::shared_ptr<Repository> repos)
 {
-    for each ControlUpdate {
-        call ControlUpdate::update(...);
+    for each unique function in ControlFunction {
+        for each Generation-scoped ControlUpdate {
+            call ControlUpdate::update(repos, parameter_, target);
+        }
+        if (no Individual-scoped ControlUpdate exists) {
+            call function->update();
+        }
     }
+    if (no Individual-scoped ControlUpdate exists) {
+        call parameter_->reset_all_already_generated();
+    }
+}
+
+void update_individual(std::shared_ptr<Repository> repos)
+{
+    if (no Individual-scoped ControlUpdate exists) {
+        return; // no-op
+    }
+    for each Individual-scoped ControlUpdate {
+        call ControlUpdate::update(repos, parameter_, target);
+    }
+    call function->update();
+    call parameter_->reset_already_generated(target_index);
 }
 ```
 
 ##### Design issue
 Why `update(repos, base_parameter, base_function)` accept these parameters?
-- `Repository` is to pass information including target_index, some fitness of population, population size, generation, etc.
+- `Repository` is to pass information including target_index, population fitness summary, population size, generation, etc.
 - `BaseControlParameter` is to adjust the object by loading object from `ControlParameter`.
 - `BaseFunction` is to adjust the object. See `Function` for the details.
+
+Why split `ControlUpdate` into `UpdateScope::Generation` and `UpdateScope::Individual`?
+- Running generation-level updates inside a per-individual loop causes redundant `Function::update()` calls on shared `SingleControlFunction` instances (and breaks non-idempotent functions such as `RouletteWheelSelectionFunction::update()`, which clears its score memory after updating).
+- Separating generation-level and individual-level phases ensures each unique function updates once per generation whenever there are no individual-scoped updates, while preserving per-individual `Function::update()` and RNG ordering whenever an individual-scoped update (such as `CurrentFitnessControlUpdate` or `SdeFControlUpdate`) is present.
 
 ### ControlFunction
 http://ukjhsa.github.io/adef/classadef_1_1_control_function.html
@@ -550,6 +589,8 @@ The subclasses manages one or many `BaseFunction`.
 ##### Usage
 Operations
 - `at(index)` to return the function.
+- `number_of_functions()` to return the number of unique managed functions (`1` for `SingleControlFunction` when set, `N` for `MultipleControlFunction`).
+- `for_each_function(func)` to invoke `func` once for each unique managed function (used by `ControlMechanism::update_generation(...)`).
 
 The parameter `index` is ignored by `SingleControlFunction` because it has only one function.
 
@@ -652,7 +693,7 @@ They are used in `ControlSelection::select(...)` and `ControlUpdate::update(...)
 
 - `update()` to update the internal states.
 
-It is used in `ControlMechanism::update(...)`
+It is used in `ControlMechanism::update_generation(...)`, `ControlMechanism::update_individual(...)`, and `ControlMechanism::update(...)`. As defense-in-depth, `LearningPeriodFunction::update()` also tracks the last updated generation so repeated calls within the same generation trigger its wrapped `object->update()` at most once.
 
 ##### Design issue
 What the use does `BaseFunction` have?
@@ -662,7 +703,7 @@ Why `Function` has the ability to support Composite, doesn't use `CompositeFunct
 - This is also an alternative. If it is used, users have to check whether the function is Composite, through additional interface such as `is_composite()`, to access the component for the use of passing inputs.
 
 Why `record(...)` needs these parameters?
-- `params` is `Any` because `Function` not only aceept in Object type but other type, e.g. `LearningPeriodFunction`'s Object type is dependent to component `object` but it also accpet parameter of `unsigned int` type into the component `generation`.
+- `params` is `std::any` because `Function` not only accepts the `Object` type but also other types, e.g. `LearningPeriodFunction`'s `Object` type depends on component `object` while it also accepts an `int` parameter into component `generation`.
 - `params` is `std::vector` because it is possible to accept many inputs.
 - `name` is used to specify what component to pass. If it is empty, inputs is accepted by this function.
 - `parent` and `offspring` are used in `ControlSelection`.
