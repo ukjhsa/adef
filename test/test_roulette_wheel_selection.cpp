@@ -553,6 +553,78 @@ bool test_weighted_proportional_selection(const adef::PrototypeManager& pm)
         }
     }
 
+    // Exact score_size window retention: score_size=4 keeps all 4 entries and evicts oldest on 5th;
+    // score_size=1 retains its single entry instead of evicting immediately.
+    {
+        auto cfg = load_json_config(R"({
+            "classname": "IntegerRouletteWheelSelectionFunction",
+            "scoring_function": { "classname": "SuccessScoringFunction" },
+            "score_size": 4,
+            "object": [0, 1]
+        })", "test_rws_score_size_4.json");
+        auto fn = adef::make_and_setup_type<adef::IntegerRouletteWheelSelectionFunction>(cfg, pm);
+        fn->init(make_repos(7171u));
+
+        auto parent = make_individual(10.0);
+        auto win = make_individual(5.0);
+        auto loss = make_individual(15.0);
+
+        // Candidate 0: [win, loss, loss, loss] -> exactly 4 entries -> score = 1/4 = 0.25
+        // (would have dropped to 0.0 if the 4th push evicted the first entry).
+        fn->record({ 0 }, parent, win);
+        fn->record({ 0 }, parent, loss);
+        fn->record({ 0 }, parent, loss);
+        fn->record({ 0 }, parent, loss);
+
+        // Candidate 1: [loss, win, win, win, win] -> 5th push evicts oldest loss -> [win, win, win, win] -> 1.0
+        fn->record({ 1 }, parent, loss);
+        fn->record({ 1 }, parent, win);
+        fn->record({ 1 }, parent, win);
+        fn->record({ 1 }, parent, win);
+        fn->record({ 1 }, parent, win);
+
+        fn->update();
+
+        // Expected P(0) = 0.25 / (0.25 + 1.0) = 0.20; N=5000 => mean=1000, stddev~=28.28; [810, 1190] is +/-6.7 sigma.
+        constexpr int kDraws = 5000;
+        int count0 = 0;
+        for (int i = 0; i < kDraws; ++i) {
+            if (fn->generate() == 0) {
+                ++count0;
+            }
+        }
+        if (!require(count0 >= 810 && count0 <= 1190,
+                     "score_size=4 window retention expected P(0)=0.20 (1000/5000), got " +
+                         std::to_string(count0))) {
+            return false;
+        }
+    }
+    {
+        auto cfg = load_json_config(R"({
+            "classname": "IntegerRouletteWheelSelectionFunction",
+            "scoring_function": { "classname": "SuccessScoringFunction" },
+            "score_size": 1,
+            "object": [0, 1]
+        })", "test_rws_score_size_1.json");
+        auto fn = adef::make_and_setup_type<adef::IntegerRouletteWheelSelectionFunction>(cfg, pm);
+        fn->init(make_repos(7272u));
+
+        auto parent = make_individual(10.0);
+        auto win = make_individual(5.0);
+        auto loss = make_individual(15.0);
+
+        fn->record({ 0 }, parent, loss);
+        fn->record({ 1 }, parent, win);
+        fn->update();
+
+        for (int i = 0; i < 200; ++i) {
+            if (!require(fn->generate() == 1,
+                         "score_size=1 must retain its single winning entry")) {
+                return false;
+            }
+        }
+    }
+
     return true;
 }
 
@@ -975,7 +1047,7 @@ bool test_all_aliases_and_sansde_control_function(const adef::PrototypeManager& 
                 {
                     "classname": "RealNormalDisFunction",
                     "mean": { "classname": "RealConstantFunction", "object": 0.5 },
-                    "stddev": { "classname": "RealConstantFunction", "object": 0.5 }
+                    "stddev": { "classname": "RealConstantFunction", "object": 0.3 }
                 },
                 {
                     "classname": "RealCauchyDisFunction",

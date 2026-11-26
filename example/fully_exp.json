@@ -16759,7 +16759,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -16778,9 +16778,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -16939,7 +16942,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -16958,9 +16961,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -17119,7 +17125,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -17138,9 +17144,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -17299,7 +17308,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -17318,9 +17327,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -17479,7 +17491,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -17498,9 +17510,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -17659,7 +17674,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -17678,9 +17693,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -17839,7 +17857,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -17858,9 +17876,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -18019,7 +18040,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -18038,9 +18059,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -18199,7 +18223,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -18218,9 +18242,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -18379,7 +18406,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -18398,9 +18425,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -18559,7 +18589,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -18578,9 +18608,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -18739,7 +18772,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -18758,9 +18791,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -18919,7 +18955,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -18938,9 +18974,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -19099,7 +19138,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -19118,9 +19157,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -19279,7 +19321,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -19298,9 +19340,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -19459,7 +19504,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -19478,9 +19523,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -19639,7 +19687,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -19658,9 +19706,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -19819,7 +19870,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -19838,9 +19889,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -19999,7 +20053,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -20018,9 +20072,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -20179,7 +20236,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -20198,9 +20255,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -20359,7 +20419,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -20378,9 +20438,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -20539,7 +20602,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -20558,9 +20621,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}
@@ -20719,7 +20785,7 @@
 													},
 													"stddev" : {
 														"classname" : "RealConstantFunction",
-														"object" : 0.5
+														"object" : 0.3
 													}
 												},
 												{
@@ -20738,9 +20804,12 @@
 									}
 								},
 								"ControlSelection" : {
-									"classname" : "RealControlBetterOffspringControlSelection"
+									"classname" : "RealControlAllOffspringControlSelection"
 								},
 								"ControlUpdate" : [
+									{
+										"classname" : "GenerationControlUpdate"
+									}
 								]
 							}
 						}

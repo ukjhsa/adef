@@ -125,6 +125,10 @@ void register_type(PrototypeManager& pm)
     pm.register_type("MultipleControlFunction", std::make_shared<MultipleControlFunction>());
 
     pm.register_type("NonInfoControlSelection", std::make_shared<NonInfoControlSelection>());
+    pm.register_type("IntegerAllOffspringControlSelection", std::make_shared<IntegerAllOffspringControlSelection>());
+    pm.register_type("RealAllOffspringControlSelection", std::make_shared<RealAllOffspringControlSelection>());
+    pm.register_type("IntegerControlAllOffspringControlSelection", std::make_shared<IntegerControlAllOffspringControlSelection>());
+    pm.register_type("RealControlAllOffspringControlSelection", std::make_shared<RealControlAllOffspringControlSelection>());
     pm.register_type("IntegerBetterOffspringControlSelection", std::make_shared<IntegerBetterOffspringControlSelection>());
     pm.register_type("RealBetterOffspringControlSelection", std::make_shared<RealBetterOffspringControlSelection>());
     pm.register_type("IntegerControlBetterOffspringControlSelection", std::make_shared<IntegerControlBetterOffspringControlSelection>());

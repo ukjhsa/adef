@@ -64,6 +64,7 @@ please see the documentation of each class.
 #include "cf/SingleControlFunction.h"
 #include "cf/MultipleControlFunction.h"
 
+#include "cs/AllOffspringControlSelection.h"
 #include "cs/BetterOffspringControlSelection.h"
 #include "cs/NonInfoControlSelection.h"
 
