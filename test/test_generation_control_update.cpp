@@ -151,6 +151,48 @@ int main()
         return 1;
     }
 
+    // 5. Same-generation repeated update() calls trigger inner object->update() only once
+    auto lpf_dedup = make_learning_period_function(3, "test_lpf_dedup.json", pm);
+    repos->parameters()->store("generation", 3u);
+    for (int repeat = 0; repeat < 5; ++repeat) {
+        updater.update(repos, nullptr, lpf_dedup);
+        lpf_dedup->update();
+    }
+    if (!require(lpf_dedup->generate() == 1.0,
+                 "Expected repeated LearningPeriodFunction::update() in gen=3 to trigger inner update only once")) {
+        return 1;
+    }
+
+    // Subsequent learning period generation (gen = 6) triggers once again
+    repos->parameters()->store("generation", 6u);
+    for (int repeat = 0; repeat < 4; ++repeat) {
+        updater.update(repos, nullptr, lpf_dedup);
+        lpf_dedup->update();
+    }
+    if (!require(lpf_dedup->generate() == 2.0,
+                 "Expected repeated LearningPeriodFunction::update() in gen=6 to trigger inner update once more")) {
+        return 1;
+    }
+
+    // 6. clone() and init() reset last_updated_generation_ so new runs are not blocked
+    auto lpf_cloned = lpf_dedup->clone();
+    repos->parameters()->store("generation", 6u);
+    updater.update(repos, nullptr, lpf_cloned);
+    lpf_cloned->update();
+    if (!require(lpf_cloned->generate() == 3.0,
+                 "Expected cloned LearningPeriodFunction to reset last_updated_generation_")) {
+        return 1;
+    }
+
+    lpf_dedup->init(repos);
+    repos->parameters()->store("generation", 6u);
+    updater.update(repos, nullptr, lpf_dedup);
+    lpf_dedup->update();
+    if (!require(lpf_dedup->generate() == 3.0,
+                 "Expected LearningPeriodFunction::init() to reset last_updated_generation_")) {
+        return 1;
+    }
+
     std::cout << "All GenerationControlUpdate & LearningPeriodFunction tests passed." << std::endl;
     return 0;
 }

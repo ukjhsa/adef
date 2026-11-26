@@ -55,6 +55,11 @@ its configuration should be
 */
     void setup(const Configuration& config, const PrototypeManager& pm) override;
 
+    UpdateScope update_scope() const override
+    {
+        return UpdateScope::Individual;
+    }
+
     void update(std::shared_ptr<Repository> repos,
                 std::shared_ptr<BaseControlParameter> parameter,
                 std::shared_ptr<BaseFunction> function) const override;

@@ -6,6 +6,7 @@
 
 namespace adef {
 
+class BaseFunction;
 class Repository;
 
 /**
@@ -46,6 +47,11 @@ public:
     void select(std::shared_ptr<Repository> repos) override;
 
     void update(std::shared_ptr<Repository> repos) override;
+
+protected:
+
+    std::shared_ptr<BaseFunction> resolve_update_target(
+        std::shared_ptr<BaseFunction> root) const override;
 
 private:
 

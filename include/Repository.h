@@ -1,11 +1,24 @@
 #ifndef EVOLUTIONSTATE_H
 #define EVOLUTIONSTATE_H
 
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include "Prototype.h"
 
 namespace adef {
+
+/**
+@brief Summary statistics of population fitness values.
+*/
+struct PopulationFitnessSummary
+{
+    std::size_t count = 0;
+    double min = 0.0;
+    double max = 0.0;
+    double average = 0.0;
+};
 
 class Configuration;
 class PrototypeManager;
@@ -83,6 +96,30 @@ class Repository :
     public Prototype, public std::enable_shared_from_this<Repository>
 {
 public:
+
+/**
+@brief RAII guard bounding a read-only population observation scope.
+
+While at least one scope is active on a Repository, population fitness
+summary queries compute a single-pass summary lazily and reuse it until
+the outermost scope exits.
+*/
+    class ReadOnlyPopulationScope
+    {
+    public:
+        explicit ReadOnlyPopulationScope(Repository* repos) noexcept;
+        explicit ReadOnlyPopulationScope(const std::shared_ptr<Repository>& repos) noexcept;
+        ~ReadOnlyPopulationScope() noexcept;
+
+        ReadOnlyPopulationScope(const ReadOnlyPopulationScope&) = delete;
+        ReadOnlyPopulationScope& operator=(const ReadOnlyPopulationScope&) = delete;
+        ReadOnlyPopulationScope(ReadOnlyPopulationScope&& other) noexcept;
+        ReadOnlyPopulationScope& operator=(ReadOnlyPopulationScope&& other) = delete;
+
+    private:
+        std::shared_ptr<Repository> owner_;
+        Repository* repos_;
+    };
 
     Repository();
     Repository(const Repository& rhs);
@@ -202,6 +239,26 @@ its configuration should be
     std::shared_ptr<const Repair> repair() const { return repair_; }
 ///@}
 
+/**
+@brief Enter a re-entrant read-only population observation scope.
+*/
+    ReadOnlyPopulationScope enter_read_only_population_scope() noexcept;
+/**
+@brief Check whether a read-only population observation scope is active.
+*/
+    bool has_read_only_population_scope() const noexcept
+    {
+        return read_only_population_scope_depth_ > 0;
+    }
+/**
+@brief Return single-pass population fitness summary statistics.
+
+Inside an active ReadOnlyPopulationScope, computes lazily on first request
+and reuses the cached summary until the outermost scope exits. Outside a
+scope, computes directly on demand without caching.
+*/
+    PopulationFitnessSummary population_fitness_summary() const;
+
 protected:
 
 /// The name of the algorithm.
@@ -242,6 +299,14 @@ other evolutionary states.
     std::shared_ptr<Repair> repair_;
 
 private:
+
+    friend class ReadOnlyPopulationScope;
+
+    void exit_read_only_population_scope() noexcept;
+    PopulationFitnessSummary compute_population_fitness_summary() const;
+
+    std::size_t read_only_population_scope_depth_;
+    mutable std::optional<PopulationFitnessSummary> population_fitness_summary_;
 
     virtual std::shared_ptr<Prototype> clone_impl() const override
     {

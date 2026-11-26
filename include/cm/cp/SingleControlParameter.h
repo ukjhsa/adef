@@ -180,7 +180,12 @@ It ignores @a index because there is only one object needed to check.
 
 It ignores @a index because there is only one object needed to check.
 */
-    void reset_already_generated(std::size_t index) override
+    void reset_already_generated(std::size_t /*index*/) override
+    {
+        already_generated_ = false;
+    }
+
+    void reset_all_already_generated() override
     {
         already_generated_ = false;
     }
@@ -306,7 +311,12 @@ It ignores @a index because there is only one object needed to check.
 
 It ignores @a index because there is only one object needed to check.
 */
-    void reset_already_generated(std::size_t index) override
+    void reset_already_generated(std::size_t /*index*/) override
+    {
+        already_generated_ = false;
+    }
+
+    void reset_all_already_generated() override
     {
         already_generated_ = false;
     }

@@ -2,6 +2,7 @@
 #define LEARNING_PERIOD_FUNCTION_H
 
 #include <memory>
+#include <optional>
 #include <vector>
 #include <string>
 #include "Function.h"
@@ -63,13 +64,20 @@ public:
 
 The default value of current period and learning period are 0.
 */
-    LearningPeriodFunction() : learning_period_(0)
+    LearningPeriodFunction() :
+        learning_period_(0),
+        last_updated_generation_(std::nullopt)
     {
     }
 /**
-@brief The copy constructor, but the current period renews.
+@brief The copy constructor; resets per-run generation tracking.
 */
-    LearningPeriodFunction(const LearningPeriodFunction& rhs) = default;
+    LearningPeriodFunction(const LearningPeriodFunction& rhs) :
+        Function<T>(rhs),
+        learning_period_(rhs.learning_period_),
+        last_updated_generation_(std::nullopt)
+    {
+    }
 
 /**
 @brief Clone the current class.
@@ -113,6 +121,13 @@ its configuration should be
         Function<T>::add_function(generation);
 
         learning_period_ = config.get_uint_value("learning_period");
+        last_updated_generation_.reset();
+    }
+
+    void init(std::shared_ptr<Repository> repos) override
+    {
+        Function<T>::init(repos);
+        last_updated_generation_.reset();
     }
 
     Object generate() override
@@ -128,8 +143,11 @@ its configuration should be
         auto current_generation = generation->generate();
 
         if (learning_period_ > 0 && current_generation >= 0 &&
-            static_cast<unsigned int>(current_generation) % learning_period_ == 0) {
+            static_cast<unsigned int>(current_generation) % learning_period_ == 0 &&
+            (!last_updated_generation_.has_value() ||
+             *last_updated_generation_ != current_generation)) {
             Function<T>::get_function("object")->update();
+            last_updated_generation_ = current_generation;
         }
     }
 
@@ -142,6 +160,8 @@ private:
 
 /// The learning period.
     unsigned int learning_period_;
+/// Last generation in which the wrapped object was updated (defense-in-depth).
+    std::optional<int> last_updated_generation_;
 
 private:
 

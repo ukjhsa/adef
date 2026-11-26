@@ -64,9 +64,14 @@ its configuration should be
 
 It ignores @em index because there is only one function.
 */
-    std::shared_ptr<BaseFunction> at(std::size_t index) override
+    std::shared_ptr<BaseFunction> at(std::size_t /*index*/) override
     {
         return function_;
+    }
+
+    std::size_t number_of_functions() const override
+    {
+        return function_ ? 1 : 0;
     }
 
 private:

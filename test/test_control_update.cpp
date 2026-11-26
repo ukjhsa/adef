@@ -687,6 +687,319 @@ bool test_generation_control_update_errors()
     return true;
 }
 
+// 7. UpdateScope declarations for all built-in ControlUpdate subclasses and default
+class CustomDefaultScopeUpdate : public adef::ControlUpdate
+{
+public:
+    void setup(const adef::Configuration&, const adef::PrototypeManager&) override {}
+    void update(std::shared_ptr<adef::Repository>,
+                std::shared_ptr<adef::BaseControlParameter>,
+                std::shared_ptr<adef::BaseFunction>) const override {}
+
+private:
+    std::shared_ptr<adef::Prototype> clone_impl() const override
+    {
+        return std::make_shared<CustomDefaultScopeUpdate>(*this);
+    }
+};
+
+bool test_control_update_scopes()
+{
+    adef::AverageFitnessControlUpdate avg_cu;
+    adef::MaxFitnessControlUpdate max_cu;
+    adef::MinFitnessControlUpdate min_cu;
+    adef::GenerationControlUpdate gen_cu;
+    adef::CurrentFitnessControlUpdate cur_cu;
+    adef::SdeFControlUpdate sde_cu;
+    CustomDefaultScopeUpdate custom_cu;
+
+    if (!require(avg_cu.update_scope() == adef::UpdateScope::Generation &&
+                     max_cu.update_scope() == adef::UpdateScope::Generation &&
+                     min_cu.update_scope() == adef::UpdateScope::Generation &&
+                     gen_cu.update_scope() == adef::UpdateScope::Generation,
+                 "Expected Average/Max/Min/Generation ControlUpdate to report UpdateScope::Generation")) {
+        return false;
+    }
+    if (!require(cur_cu.update_scope() == adef::UpdateScope::Individual &&
+                     sde_cu.update_scope() == adef::UpdateScope::Individual &&
+                     custom_cu.update_scope() == adef::UpdateScope::Individual,
+                 "Expected Current/SdeF and default custom ControlUpdate to report UpdateScope::Individual")) {
+        return false;
+    }
+    return true;
+}
+
+// 8. Repository::ReadOnlyPopulationScope laziness, single-pass sharing,
+//    re-entrancy, exception safety, clone isolation, and empty-population contracts
+bool test_read_only_population_scope_and_summary(const adef::PrototypeManager& pm)
+{
+    adef::AverageFitnessControlUpdate avg_cu;
+    adef::MaxFitnessControlUpdate max_cu;
+    adef::MinFitnessControlUpdate min_cu;
+
+    // 8a. Outside scope: computes fresh on demand with zero stale cache
+    {
+        auto repos = std::make_shared<TestRepository>();
+        auto pop = make_population_with_fitness({2.0, 4.0, 6.0}, pm, "scope_outside");
+        repos->set_population(pop);
+        if (!require(!repos->has_read_only_population_scope(),
+                     "Expected no active read-only scope initially")) {
+            return false;
+        }
+
+        auto spy_avg = std::make_shared<SpyFunction>(true, "average");
+        auto spy_min = std::make_shared<SpyFunction>(true, "min");
+        auto spy_max = std::make_shared<SpyFunction>(true, "max");
+
+        avg_cu.update(repos, nullptr, spy_avg);
+        min_cu.update(repos, nullptr, spy_min);
+        max_cu.update(repos, nullptr, spy_max);
+        if (!require(approx_equal(spy_avg->last_double(), 4.0) &&
+                         approx_equal(spy_min->last_double(), 2.0) &&
+                         approx_equal(spy_max->last_double(), 6.0),
+                     "Outside scope: initial summary mismatch")) {
+            return false;
+        }
+
+        pop->at(0)->set_fitness_value(-10.0);
+        avg_cu.update(repos, nullptr, spy_avg);
+        min_cu.update(repos, nullptr, spy_min);
+        if (!require(approx_equal(spy_avg->last_double(), 0.0) &&
+                         approx_equal(spy_min->last_double(), -10.0),
+                     "Outside scope: expected fresh recomputation after mutation")) {
+            return false;
+        }
+    }
+
+    // 8b. Lazy evaluation & single-pass sharing across Average/Min/Max + re-entrancy
+    {
+        auto repos = std::make_shared<TestRepository>();
+        auto pop = make_population_with_fitness({1.0, 5.0, 9.0}, pm, "scope_lazy_share");
+        repos->set_population(pop);
+
+        auto spy_avg = std::make_shared<SpyFunction>(true, "average");
+        auto spy_min = std::make_shared<SpyFunction>(true, "min");
+        auto spy_max = std::make_shared<SpyFunction>(true, "max");
+
+        {
+            auto outer = repos->enter_read_only_population_scope();
+            if (!require(repos->has_read_only_population_scope(),
+                         "Expected active read-only scope after entering outer scope")) {
+                return false;
+            }
+
+            // Mutate BEFORE first query -> proves entering scope did NOT eagerly scan
+            pop->at(0)->set_fitness_value(4.0); // now {4.0, 5.0, 9.0}, avg=6.0, min=4.0, max=9.0
+
+            {
+                auto inner = repos->enter_read_only_population_scope();
+                avg_cu.update(repos, nullptr, spy_avg);
+                if (!require(approx_equal(spy_avg->last_double(), 6.0),
+                             "Expected lazy first query inside scope to observe pre-query value (6.0)")) {
+                    return false;
+                }
+
+                // White-box cache-hit verification: mutate after first query inside same scope;
+                // Min and Max MUST reuse the single-pass summary computed during Average's query.
+                pop->at(0)->set_fitness_value(-100.0);
+                pop->at(2)->set_fitness_value(999.0);
+
+                min_cu.update(repos, nullptr, spy_min);
+                max_cu.update(repos, nullptr, spy_max);
+                if (!require(approx_equal(spy_min->last_double(), 4.0) &&
+                                 approx_equal(spy_max->last_double(), 9.0),
+                             "Expected Min/Max inside same scope to reuse single-pass summary")) {
+                    return false;
+                }
+            }
+
+            // Inner scope exited, outer scope still active -> cache MUST remain valid
+            if (!require(repos->has_read_only_population_scope(),
+                         "Expected scope to remain active while outer guard is alive")) {
+                return false;
+            }
+            avg_cu.update(repos, nullptr, spy_avg);
+            if (!require(approx_equal(spy_avg->last_double(), 6.0),
+                         "Expected summary to survive inner scope exit until outer scope exits")) {
+                return false;
+            }
+
+            // Clone while scope & cache are active -> clone MUST NOT inherit scope depth or cache
+            auto cloned_repos = repos->clone();
+            if (!require(!cloned_repos->has_read_only_population_scope(),
+                         "Expected Repository::clone() to reset active scope depth")) {
+                return false;
+            }
+            const auto cloned_summary = cloned_repos->population_fitness_summary();
+            if (!require(approx_equal(cloned_summary.min, -100.0) &&
+                             approx_equal(cloned_summary.max, 999.0),
+                         "Expected Repository::clone() to compute fresh summary without stale cache")) {
+                return false;
+            }
+        }
+
+        // Outer scope exited -> cache MUST be cleared immediately
+        if (!require(!repos->has_read_only_population_scope(),
+                     "Expected scope inactive after outer guard exits")) {
+            return false;
+        }
+        min_cu.update(repos, nullptr, spy_min);
+        max_cu.update(repos, nullptr, spy_max);
+        if (!require(approx_equal(spy_min->last_double(), -100.0) &&
+                         approx_equal(spy_max->last_double(), 999.0),
+                     "Expected immediate cache clear on outer scope exit")) {
+            return false;
+        }
+    }
+
+    // 8c. Exception safety: scope exits cleanly and clears summary on stack unwind
+    {
+        auto repos = std::make_shared<TestRepository>();
+        auto pop = make_population_with_fitness({1.0, 2.0, 3.0}, pm, "scope_exc");
+        repos->set_population(pop);
+
+        bool caught = false;
+        try {
+            auto scope = repos->enter_read_only_population_scope();
+            (void)repos->population_fitness_summary();
+            pop->at(0)->set_fitness_value(50.0);
+            throw std::runtime_error("simulated reproduction failure");
+        }
+        catch (const std::runtime_error&) {
+            caught = true;
+        }
+
+        if (!require(caught && !repos->has_read_only_population_scope(),
+                     "Expected scope to unwind cleanly on exception")) {
+            return false;
+        }
+        const auto fresh = repos->population_fitness_summary();
+        if (!require(approx_equal(fresh.max, 50.0) && approx_equal(fresh.min, 2.0),
+                     "Expected summary cache cleared after exception unwind")) {
+            return false;
+        }
+    }
+
+    // 8d. Empty-population contracts preserved inside an active scope
+    {
+        auto repos = std::make_shared<TestRepository>();
+        repos->set_population(make_population_with_fitness({}, pm, "scope_empty"));
+        auto scope = repos->enter_read_only_population_scope();
+
+        auto spy_avg = std::make_shared<SpyFunction>(true, "average");
+        avg_cu.update(repos, nullptr, spy_avg);
+        if (!require(approx_equal(spy_avg->last_double(), 0.0),
+                     "Inside scope: expected AverageFitnessControlUpdate to record 0.0 on empty population")) {
+            return false;
+        }
+
+        auto spy_min = std::make_shared<SpyFunction>(true, "min");
+        bool min_threw = false;
+        try {
+            min_cu.update(repos, nullptr, spy_min);
+        }
+        catch (const std::out_of_range&) {
+            min_threw = true;
+        }
+
+        auto spy_max = std::make_shared<SpyFunction>(true, "max");
+        bool max_threw = false;
+        try {
+            max_cu.update(repos, nullptr, spy_max);
+        }
+        catch (const std::out_of_range&) {
+            max_threw = true;
+        }
+
+        if (!require(min_threw && max_threw,
+                     "Inside scope: expected Min/MaxFitnessControlUpdate to throw std::out_of_range on empty population")) {
+            return false;
+        }
+    }
+
+    // 8e. Lifetime safety: guard retains ownership for shared_ptr-managed Repository
+    //     (including move construction and direct shared_ptr ctor) and stays safe for
+    //     stack-allocated and null instances.
+    {
+        std::weak_ptr<adef::Repository> weak_ref;
+        {
+            auto repos = std::make_shared<TestRepository>();
+            repos->set_population(make_population_with_fitness({3.0, 9.0}, pm, "scope_life_enter"));
+            weak_ref = repos;
+
+            auto scope = repos->enter_read_only_population_scope();
+            (void)repos->population_fitness_summary();
+            repos.reset(); // drop caller's shared_ptr while scope is still alive
+
+            if (!require(!weak_ref.expired() && weak_ref.lock()->has_read_only_population_scope(),
+                         "Expected enter_read_only_population_scope() guard to keep shared_ptr-managed Repository alive")) {
+                return false;
+            }
+
+            auto moved_scope = std::move(scope);
+            if (!require(!weak_ref.expired() && weak_ref.lock()->has_read_only_population_scope(),
+                         "Expected moved ReadOnlyPopulationScope to retain Repository ownership and active scope")) {
+                return false;
+            }
+        }
+        if (!require(weak_ref.expired(),
+                     "Expected Repository to be released after moved ReadOnlyPopulationScope exits")) {
+            return false;
+        }
+    }
+    {
+        std::weak_ptr<adef::Repository> weak_ref;
+        {
+            std::shared_ptr<adef::Repository> repos = std::make_shared<TestRepository>();
+            weak_ref = repos;
+
+            adef::Repository::ReadOnlyPopulationScope scope(repos);
+            repos.reset(); // drop caller's shared_ptr while guard constructed from shared_ptr is alive
+
+            if (!require(!weak_ref.expired() && weak_ref.lock()->has_read_only_population_scope(),
+                         "Expected ReadOnlyPopulationScope(shared_ptr) to keep Repository alive after caller reset")) {
+                return false;
+            }
+        }
+        if (!require(weak_ref.expired(),
+                     "Expected Repository to be released after ReadOnlyPopulationScope(shared_ptr) exits")) {
+            return false;
+        }
+    }
+    {
+        // Stack-allocated (non-shared_ptr) Repository works cleanly without throwing std::bad_weak_ptr
+        TestRepository stack_repos;
+        stack_repos.set_population(make_population_with_fitness({2.0, 8.0}, pm, "scope_stack"));
+        {
+            auto scope = stack_repos.enter_read_only_population_scope();
+            const auto first = stack_repos.population_fitness_summary();
+            stack_repos.population()->at(0)->set_fitness_value(100.0);
+            const auto cached = stack_repos.population_fitness_summary();
+            if (!require(stack_repos.has_read_only_population_scope() &&
+                             approx_equal(first.average, 5.0) &&
+                             approx_equal(cached.average, 5.0),
+                         "Expected stack-allocated Repository scope to cache summary safely")) {
+                return false;
+            }
+        }
+        const auto after = stack_repos.population_fitness_summary();
+        if (!require(!stack_repos.has_read_only_population_scope() &&
+                         approx_equal(after.average, 54.0),
+                     "Expected stack-allocated Repository scope to exit and clear summary cleanly")) {
+            return false;
+        }
+
+        // Null pointer and null shared_ptr guards are safe no-ops
+        adef::Repository::ReadOnlyPopulationScope null_raw(static_cast<adef::Repository*>(nullptr));
+        adef::Repository::ReadOnlyPopulationScope null_shared(std::shared_ptr<adef::Repository>{});
+        auto moved_null = std::move(null_shared);
+        (void)null_raw;
+        (void)moved_null;
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -710,6 +1023,12 @@ int main()
         return 1;
     }
     if (!test_generation_control_update_errors()) {
+        return 1;
+    }
+    if (!test_control_update_scopes()) {
+        return 1;
+    }
+    if (!test_read_only_population_scope_and_summary(pm)) {
         return 1;
     }
 

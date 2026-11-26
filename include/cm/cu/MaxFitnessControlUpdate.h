@@ -11,7 +11,6 @@ class PrototypeManager;
 class Repository;
 class BaseControlParameter;
 class BaseFunction;
-class Population;
 
 /**
 @brief MaxFitnessControlUpdate updates internal states by
@@ -53,13 +52,14 @@ its configuration should be
 */
     void setup(const Configuration& config, const PrototypeManager& pm) override;
 
+    UpdateScope update_scope() const override
+    {
+        return UpdateScope::Generation;
+    }
+
     void update(std::shared_ptr<Repository> repos,
                 std::shared_ptr<BaseControlParameter> parameter,
-        std::shared_ptr<BaseFunction> function) const override;
-
-private:
-
-    double find_max_fitness(std::shared_ptr<const Population> pop) const;
+                std::shared_ptr<BaseFunction> function) const override;
 
 private:
 

@@ -19,14 +19,13 @@ void SadeCrControlMechanism::select(std::shared_ptr<Repository> repos)
 
 void SadeCrControlMechanism::update(std::shared_ptr<Repository> repos)
 {
-    auto index = repos->parameters()->take_out<std::size_t>("target_index");
-    auto func = function_->at(index)->get_function("mean");
-    for (auto& update : updates_) {
-        update->update(repos, parameter_, func);
-    }
+    ControlMechanism<double>::update(repos);
+}
 
-    function_->at(index)->update();
-    parameter_->reset_already_generated(index);
+std::shared_ptr<BaseFunction> SadeCrControlMechanism::resolve_update_target(
+    std::shared_ptr<BaseFunction> root) const
+{
+    return root->get_function("mean");
 }
 
 }
