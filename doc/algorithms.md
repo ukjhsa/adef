@@ -1,6 +1,6 @@
 # Supported Adaptive Differential Evolution Algorithms
 
-This document lists the adaptive Differential Evolution (DE) algorithms supported by ADEF and their corresponding reference papers, as presented in Section 2.2 of the ADEF thesis (*ADEF: A Software Framework for Adaptive Differential Evolution*).
+This document lists the adaptive Differential Evolution (DE) algorithms supported by ADEF along with their example configurations and corresponding reference papers.
 
 ## Summary
 
