@@ -155,6 +155,8 @@ For every single run of DE (e.g. jDE) to solve a certain function (e.g. Sphere),
 
 [The documentation](doc/documentation.md)
 
+[Supported algorithms and references](doc/algorithms.md)
+
 [The API documentation](http://ukjhsa.github.io/adef/)
 
 ## License
